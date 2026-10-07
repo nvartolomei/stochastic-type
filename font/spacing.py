@@ -32,6 +32,13 @@ def _scan(contours, y):
     return xs
 
 
+def stem_width(font, ch="l", y=230):
+    """Ink width of a letter's stem at mid-height, where serifs, flags and tails do not reach."""
+    name = font.getBestCmap()[ord(ch)]
+    xs = _scan(flatten_contours(glyph_path(font.getGlyphSet(), name), 10), y)
+    return xs[1] - xs[0]
+
+
 def side_profile(contours, zone_top, samples=28):
     """Left and right ink extremes across the zone [0, zone_top]; None where there is no ink."""
     left, right = [], []
@@ -69,9 +76,10 @@ def optical_edges(contours, cat, xheight=504, capheight=690):
 
 
 def letterspace(font, xheight=504, capheight=690, target=76, strength=0.55, floor=14, digit_sb=62, space=360,
-                min_edge=24):
+                min_edge=24, hook_overhang=90):
     """Balanced spacing from glyph shape: straight sides get `target`, receding sides less.
-    `min_edge` keeps descender and ascender hooks from poking into the neighbouring gap."""
+    `min_edge` keeps ink on the right clear of the next glyph. On the left a descender hook may overhang
+    the previous cell by up to `hook_overhang`, so a j sits by its stem and not by its tail."""
     glyf, hmtx, cmap = font["glyf"], font["hmtx"], font.getBestCmap()
     gs = font.getGlyphSet()
     shifts = {}
@@ -83,7 +91,7 @@ def letterspace(font, xheight=504, capheight=690, target=76, strength=0.55, floo
         g.coordinates.translate((dx, 0))
         g.recalcBounds(glyf)
         adv = round(left_sb + (right_ext - left_ext) + right_sb)
-        lift = min_edge - g.xMin
+        lift = -hook_overhang - g.xMin
         if lift > 0:
             g.coordinates.translate((lift, 0))
             g.recalcBounds(glyf)

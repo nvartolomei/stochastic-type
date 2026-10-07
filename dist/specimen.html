@@ -19,7 +19,7 @@
   :root { --bg: #151514; --fg: #ecebe6; --muted: #9a988f; --rule: #34332f; --card: #1d1d1b; --accent: #fb923c; color-scheme: dark; }
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.6 "Stochastic Sans", system-ui, sans-serif; }
+body { font-kerning: var(--kern, normal); margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.6 "Stochastic Sans", system-ui, sans-serif; }
 main { max-width: 980px; margin: 0 auto; padding: 32px 20px 96px; }
 h1, h2, h3 { font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; margin: 0; }
 h1 { font-size: clamp(40px, 8vw, 84px); }
@@ -74,7 +74,7 @@ pre.code { font: 15px/1.5 "Stochastic Mono", ui-monospace, Menlo, monospace; fon
     <label>Size <input id="fs" type="range" min="14" max="24" step="1" value="17"><output id="fsv">17px</output></label>
     <label>Line height <input id="lh" type="range" min="1.3" max="2" step="0.05" value="1.6"><output id="lhv">1.6</output></label>
     <label>Letter spacing <input id="ls" type="range" min="-0.02" max="0.08" step="0.005" value="0"><output id="lsv">0em</output></label>
-    <label>Mono tucking <input id="tuck" type="checkbox" checked></label>
+    <label>Kerning and tucking <input id="tuck" type="checkbox" checked></label>
   </div>
 
   <h2>Reading test</h2>
@@ -112,6 +112,14 @@ pre.code { font: 15px/1.5 "Stochastic Mono", ui-monospace, Menlo, monospace; fon
     <div class="card"><p class="label">Bold italic · synthesized by the browser</p><p class="big" style="font-style:italic">Probably fine, probably not.</p><p style="font-style:italic"><b>Language models can write fluent prose, but fluency is not evidence of truth.</b> Treat every number, quote and citation as a claim to check.</p></div>
   </div>
 
+  <h2>Spacing and kerning</h2>
+  <p class="note">Spacing is set from each letter's shape and pairs are kerned toward one optical gap. Toggle "Kerning and tucking" in the toolbar to see the difference.</p>
+  <div class="card" style="font-size:38px;line-height:1.3">
+    <div>Adjust adjust hijack jug fill illusion</div>
+    <div>Type Wave AVATAR To Ty fluency</div>
+    <div style="font-weight:700">Adjust jug Type Wave fill</div>
+  </div>
+
   <h2>Characters</h2>
   <p class="note">Box drawing, blocks, Braille and the other terminal graphics are in both fonts but only line up in Stochastic Mono; see the monospace section below.</p>
   <div class="card glyphs">
@@ -120,7 +128,7 @@ pre.code { font: 15px/1.5 "Stochastic Mono", ui-monospace, Menlo, monospace; fon
   </div>
 
   <h2>Monospace</h2>
-  <p class="note">Stochastic Mono has one fixed 550-unit cell. Every glyph, including the em dash, arrows and ellipsis, fits a single cell, so code and tables stay aligned. Box drawing and block characters are the base's own geometry, unrestyled, so lines meet exactly across cells and rows. Narrow letters are nudged toward their neighbours with kerning, inside their own cells; switch it off to compare.</p>
+  <p class="note">Stochastic Mono has one fixed 550-unit cell. Every glyph, including the em dash, arrows and ellipsis, fits a single cell, so code and tables stay aligned. Box drawing and block characters are the base's own geometry, unrestyled, so lines meet exactly across cells and rows. Narrow letters are nudged toward their neighbours with kerning, inside their own cells; the toolbar switch turns that and the Sans kerning off so you can compare.</p>
   <div class="grid g2">
     <div>
       <p class="label">Code</p>
@@ -137,7 +145,8 @@ total = 3.4 - 2.1  # +1.3 pts, probably</pre>
 0123456789012345678901234567890123456789
 abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN
 iiiiiiiiiillllllllllllWWWWWWWWWWmmmmmmmm
-verify fluency rift little willing  WWWW wwww MMMM mmmm</pre>
+verify fluency rift little willing  WWWW wwww MMMM mmmm
+illusion lilliput hijack Adjust fill</pre>
     </div>
     <div>
       <p class="label">Tables and trees</p>

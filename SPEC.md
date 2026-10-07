@@ -43,8 +43,8 @@ Everything not covered falls back to the reader's system font.
 
 Entry point: `make` (see section 9). Source files are in `font/`.
 
-1. **Base**: `iosevka-plan.toml` and `iosevka.py` build two custom Iosevka fonts from source with Node: a quasi-proportional sans and a `term` monospace, Regular and Bold, upright only, ligatures off. Shared variants: `a` single-storey-tailed, `g` single-storey-serifless, `y` straight-serifless, `i j l` serifless, capital `I` serifed, `zero` slashed, `one` base, `e` flat-crossbar. Metric overrides: cap 690, ascender 715, x-height 504, leading 1200. The proportional plan has cell width 530 and sidebearings x0.7 (wide bodies; advances are replaced later). The monospace plan has cell 550 and default sidebearings, plus a flat-top `W` and `w` (section 8).
-2. **Subset and scale** (`build.py`): keep only the codepoints in the charset, scale to x-height 504 (a no-op for these bases).
+1. **Base**: `iosevka-plan.toml` and `iosevka.py` build two custom Iosevka fonts from source with Node: a quasi-proportional sans and a `term` monospace, Regular and Bold, upright only, ligatures off. Shared variants: `a` single-storey-tailed, `g` single-storey-serifless, `y` straight-serifless, capital `I` serifed, `zero` slashed, `one` base, `e` flat-crossbar. Sans: `i` serifless, `l` tailed, `j` narrow-serifless. Mono: `i` serifed, `l` tailed-serifed, `j` serifed (anchored, see section 8). Metric overrides: cap 690, ascender 715, x-height 504, leading 1200. The proportional plan has cell width 530 and sidebearings x0.7 (wide bodies; advances are replaced later). The monospace plan has cell 550 and default sidebearings, plus a flat-top `W` and `w` (section 8).
+2. **Subset and scale** (`build.py`): keep only the codepoints in the charset, scale to x-height 504 (a no-op for these bases). The base stem is measured as the ink width of `l` at mid-height (y = 230), where serifs, flags and tails do not reach; measuring the bounding box instead made serifed variants look like 400-unit stems.
 3. **Spacing** (`spacing.py`, proportional only): section 7.
 4. **Restyle** (`restyle.py`, `squarify.py`, `outline.py`), per simple glyph:
    - Thicken or thin to the target stem with a stroke offset (miter joins).
@@ -63,6 +63,7 @@ Entry point: `make` (see section 9). Source files are in `font/`.
 - **Restyle in place.** Keeping the base's glyph set, composites and metrics means nothing else has to be rebuilt. The restyle only moves outlines.
 - **Squircle push, not a re-draw.** It only displaces points, so it cannot change a glyph's topology. An octagonal-bowl fitter and a centerline-and-pen redraw were both prototyped; the first broke junction-heavy glyphs and the second was rough on this base. Neither is in the repo.
 - **Spacing from outlines.** Iosevka centres every letter in a near-uniform cell, which leaves `l`, `f`, `t` and `r` floating. Owner feedback was that tighter side bearings made letters hard to tell apart and that more air reads better, so spacing is computed from each outline instead of tightened (section 7).
+- **Tailed `l` in the sans.** It keeps the anatomy consistent with the mono and tells `l`, `I` and `1` apart. A narrow `j` has a shorter hook, so it hangs less into the previous letter.
 - **Weights.** Regular is deliberately medium (76) for screen prose. Bold (118) is tuned so counters in `e` and `a` stay open at body sizes.
 - **No synthesized weights.** With only Regular available, the test browser rendered bold text as plain Regular, so both weights ship.
 
@@ -72,15 +73,20 @@ For each text glyph the left and right ink edges are measured over its zone (x-h
 
 - Sidebearing per side = `target - strength x depth`, floored at 14. `target` 80, `strength` 0.6 (letters); 0.8 x target and 0.6 x strength for punctuation and symbols.
 - Straight sides therefore get the most room; receding sides (`t f r v y w`) get less.
-- Descender and ascender hooks keep at least 24 units of clearance (`min_edge`) so `j` does not touch the previous word.
+- Ink on the right keeps at least 24 units of clearance. On the left a descender hook may overhang the previous cell by up to 90 units, so a `j` sits by its stem and not by its tail (before this, the whole glyph was shifted right to clear the hook, leaving 295 units of optical air on its left against a typical 80).
 - Digits are tabular: one advance equal to the widest digit plus 62 on each side.
 - The space is 360 units.
 - Accented composites take their base letter's advance, and their accent components shift with the base.
+
+### 7.1 Pair kerning (`kerning.py`, proportional only)
+
+Per-glyph sidebearings give every letter the same optical bearing, so in the model every pair has the same optical gap (the median, 161 units). A floor, a hook, or a depth model that is off leaves outliers (`T Y F L J f j r`). Kerning is class pair positioning in a `kern` feature: each pair's optical gap is the first glyph's right bearing plus the second's left bearing, glyphs are bucketed by bearing in 4-unit steps, and each class pair gets `-0.7 x (gap - median)`, clamped to -70..+25 units, rounded to 2, and dropped if smaller than 8. About 2,800 class pairs. In the model the gap spread inside words falls from 6.1 to 2.3 for lowercase words and from 7.2 to 2.5 for capitalised words and those letters. This is a measure of the model, not of perception; the moderate 0.7 share is deliberate. A first version with 20-unit buckets added noise (6.0 to 8.1), which is why the buckets are fine.
 
 ## 8. Monospace
 
 - **Grid:** 550-unit cell, every one of the 3,084 codepoints exactly one cell wide, and `isFixedPitch` set. Iosevka's `term` spacing is what guarantees em dash, arrows and ellipsis fit one cell. The earlier "normal" mono spacing made 470 glyphs two cells wide.
 - **Width choice:** reduced from 580 to 550 after feedback that there was too much horizontal space.
+- **Anchored `i`, `l`, `j`:** compared against Commit Mono on the owner's machine, whose `l` and `i` span about 70 percent of the cell (a top flag or serif and a foot) while ours were bare 76 to 120 unit sticks that floated (optical bearing 237 units a side against about 85 for round letters). The mono now uses `i` serifed, `l` tailed-serifed and `j` serifed, which brought `i` to about 155 and gave `l` a foot. Chosen by rendering four combinations (serifed or tailed `i`, serifed, tailed-serifed or flat-tailed `l`) and comparing words such as "illusion little fill hijack lilliput". Outlines come from Iosevka's own variants, not from Commit Mono.
 - **`W`, `w`, `M`, `m`:** four strokes in one cell leave slivers that shimmer in rows of `WWWW` at small sizes. A flat-top `W` and `w` (lower middle apex) plus a closing radius of 22 gives solid feet and open counters. A radius of 32 was too heavy.
 - **Tucking (`tuck.py`):** narrow letters leave more air than their neighbours. Every glyph keeps its advance; contextual `kern` positioning shifts glyphs inside their own cells.
   - Eligible glyphs: letters and `. , : ; ! ?`. Digits, brackets and operators stay centred so columns and code keep their rhythm.
@@ -109,6 +115,9 @@ For each text glyph the left and right ink edges are measured over its zone (x-h
 - Monospace: every advance is 550, `isFixedPitch` is set, box-drawing glyphs match the base outlines, and a rendered box, rounded corners, double lines, blocks and Braille line up.
 - Tucking: confirmed with a text shaper (HarfBuzz) that offsets change and advances do not.
 - The specimen was rendered at body and display sizes for both families.
+- Harmony audit (optical bearing per letter against the median): sans `j` 295 to 136 on the left; mono `i` 237 to about 155, `l` anchored. Remaining sans outliers (`T f L F Y E J`) are handled by kerning; mono outliers by anchoring and tucking.
+- Against the previous build the mono changed only `i`, `j`, `l` and their accented forms, with no advance changes. The sans changed `j`, `l`, and `A J T V X Y Z f t`, because the left clearance for ink inside the zone went from 24 to the floor of 14 when hooks were allowed to overhang.
+- Two from-scratch builds of all four fonts are byte-identical, and every font loads in Chrome.
 
 ## 11. Known limitations and open items
 
@@ -118,7 +127,7 @@ For each text glyph the left and right ink edges are measured over its zone (x-h
 - Italics are browser-synthesized. A true oblique could come from Iosevka's slope settings through the same pipeline, but that is not built.
 - The `W` fix is a fill, so rows of `WWWW` are heavier at the base than the rest of the glyphs.
 - Greek letters that are math symbols (Δ π μ) are not covered, by decision.
-- Open: whether to add real pair kerning to the proportional font using the same optical-gap model (currently none); whether to pin the Iosevka version; whether to add a true oblique.
+- Open: whether to pin the Iosevka version; whether to add a true oblique. Kerning strength (0.7) and the tucking limits were chosen from a model and a few renders, not from reading tests.
 
 ## 12. Licence and attribution
 

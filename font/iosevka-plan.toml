@@ -1,5 +1,5 @@
 # Build plan for the Iosevka base of Stochastic Sans. font/iosevka.py copies it into the Iosevka checkout.
-# Anatomy: single-storey a and g, straight y, slashed zero, serifed capital I.
+# Anatomy: single-storey a and g, straight y, slashed zero, serifed capital I, tailed l, narrow j.
 # Metrics: a tall x-height (504) and cap height 690 for long prose, wide letter bodies
 # (cell 530, sidebearings x0.7). Advances are replaced by font/spacing.py, so only the bodies matter.
 
@@ -16,8 +16,8 @@ a = "single-storey-tailed"
 g = "single-storey-serifless"
 y = "straight-serifless"
 i = "serifless"
-j = "serifless"
-l = "serifless"
+j = "narrow-serifless"
+l = "tailed"
 capital-i = "serifed"
 zero = "slashed"
 one = "base"
@@ -69,9 +69,9 @@ noLigation = true
 a = "single-storey-tailed"
 g = "single-storey-serifless"
 y = "straight-serifless"
-i = "serifless"
-j = "serifless"
-l = "serifless"
+i = "serifed"
+j = "serifed"
+l = "tailed-serifed"
 capital-i = "serifed"
 zero = "slashed"
 one = "base"

@@ -5,8 +5,8 @@
 
 Subset to the target codepoints, scale to the target x-height, thicken or thin to the target
 stem, push bowls toward squircles (squarify.py), fill slivers, snap near-axis lines, respace
-(spacing.py) or, for the monospace build, add contextual tucking (tuck.py), then rename and set
-line metrics.
+(spacing.py) and add pair kerning (kerning.py) or, for the monospace build, contextual tucking
+(tuck.py), then rename and set line metrics.
 """
 
 import argparse
@@ -24,7 +24,8 @@ from fontTools.ttLib import TTFont
 sys.path.insert(0, str(Path(__file__).parent))
 from charset import target_codepoints  # noqa: E402
 from restyle import rescale, restyle_font  # noqa: E402
-from spacing import letterspace  # noqa: E402
+from spacing import letterspace, stem_width  # noqa: E402
+from kerning import kern  # noqa: E402
 from tuck import tuck  # noqa: E402
 
 FAMILY = "Stochastic Sans"
@@ -129,18 +130,19 @@ def build(src, out, weight, mono=False):
     subset_to(font, target_codepoints())
     rescale(font, TARGET_XHEIGHT / measure(font, "x")[3])
     respaced = 0 if mono else letterspace(font, **SPACING)
-    stem = measure(font, "l")
-    stem_width = stem[2] - stem[0]
-    cfg = dict(embolden=TARGET_STEM[weight] - stem_width, close=CLOSE_RADIUS, style=STYLE,
+    base_stem = stem_width(font)
+    cfg = dict(embolden=TARGET_STEM[weight] - base_stem, close=CLOSE_RADIUS, style=STYLE,
                **(MONO_FILL if mono else {}))
     log = []
     restyle_font(font, cfg, log)
     finish(font)
     if mono:
         tuck(font)
+    else:
+        kern(font)
     rename(font, weight, MONO_FAMILY if mono else FAMILY)
     font.save(out)
-    return stem_width, respaced, log
+    return base_stem, respaced, log
 
 
 def main():
