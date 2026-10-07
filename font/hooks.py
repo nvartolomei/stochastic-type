@@ -14,7 +14,7 @@ keeps it whole, because a shorter r looks small in a cell where every other lett
 
 The flat-hook t also loses the overshoot the round hook had: its foot sits on the baseline while the
 tail of l and the round letters go 8 units below it, so the t looks lifted. Its foot is lowered to
-l's bottom.
+l's bottom, and so is the flat base of the sans a.
 """
 
 import pathops
@@ -141,9 +141,12 @@ def match_hooks(font, arms=BAR_ARMS, r_arm=ARM_RATIO, margin=2):
         _cut(font, name, (-big, bottom, stem_left - reach * arms[0], top))
         _cut(font, name, (stem_right + reach * arms[1], bottom, big, top))
 
-    sink = _bottom(font, cmap[ord("l")]) - _bottom(font, t)
-    if sink < -1:
-        lower_foot(font, t, sink)
+    floor = _bottom(font, cmap[ord("l")])
+    for ch in "ta":
+        name = cmap[ord(ch)]
+        sink = floor - _bottom(font, name)
+        if sink < -1:
+            lower_foot(font, name, sink)
 
     j = cmap[ord("j")]
     stem_left = _scan(_contours(font, j), STEM_Y)[-2]
