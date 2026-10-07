@@ -5,9 +5,10 @@
 
 Subset to the target codepoints, scale to the target x-height, cut the hooks of t, f and j back to
 the length of l's tail and shorten the crossbars and the arm of r (hooks.py), widen the capitals and
-digits of the sans (caps.py), lighten the dots of sentence marks (marks.py), respace
-(spacing.py), fill the counters of W w M m in the monospace, add pair kerning (kerning.py) or, for the monospace build, contextual tucking (tuck.py), then
-rename and set line metrics. Stem weight is not touched here: the Iosevka plan sets it.
+digits of the sans (caps.py), lighten the dots of sentence marks (marks.py), respace (spacing.py),
+fill the counters of W w M m in the monospace, add pair kerning (kerning.py) or, for the monospace
+build, contextual tucking (tuck.py), then rename and set line metrics. Stem weight is not touched
+here: the Iosevka plan sets it.
 """
 
 import argparse

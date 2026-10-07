@@ -5,13 +5,15 @@ period is twice as wide as a stroke and the semicolon, a dot over a comma, reads
 thing on the line. The dots and comma heads of the sentence marks are scaled to a multiple of the
 stem. Each contour is scaled about the centre of its head, so dots keep their place on the
 baseline and x-height and commas keep their hang. The colon and semicolon are composites of a period
-or comma and U+A78F, the dot at x-height, so that glyph is scaled too.
+or comma and U+A78F, the dot at x-height. That glyph has no codepoint in the subset, so it is found
+through the components of the composites; scaling only the glyphs the cmap names left the top dot of
+`:` and `;` 25 percent larger than the period.
 """
 
 from fontTools.pens.boundsPen import BoundsPen
 
 DOT_RATIO = 1.6
-MARKS = ".,!?¡¿…‥‼⁇⁈⁉‽\ua78f"
+MARKS = ".,:;!?¡¿…‥‼⁇⁈⁉‽"
 
 
 def _contours(glyph):
@@ -39,13 +41,22 @@ def lighten_marks(font, stem, ratio=None):
     if scale >= 1:
         return 1.0
     glyf, cmap = font["glyf"], font.getBestCmap()
-    done = set()
+    names = []
     for ch in MARKS:
         name = cmap.get(ord(ch))
-        if name is None or name in done or glyf[name].isComposite() or glyf[name].numberOfContours == 0:
+        if name is None:
+            continue
+        glyph = glyf[name]
+        if glyph.isComposite():
+            names += [c.glyphName for c in glyph.components if not glyf[c.glyphName].isComposite()]
+        else:
+            names.append(name)
+    done = set()
+    for name in names:
+        glyph = glyf[name]
+        if name in done or glyph.numberOfContours == 0:
             continue
         done.add(name)
-        glyph = glyf[name]
         coords = glyph.coordinates
         for lo, hi in _contours(glyph):
             pts = [coords[i] for i in range(lo, hi)]
