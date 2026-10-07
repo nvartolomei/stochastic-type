@@ -9,12 +9,16 @@ pairs, a little looser for tight ones.
 Classes are 4-unit buckets of optical bearing, fine enough that the estimate carries no visible
 quantisation noise and coarse enough that the class pair table stays small.
 
-Three kinds of explicit glyph pair sit in front of the classes, because a sum of two per-glyph
-averages cannot see how two shapes face each other. The crossbars of f and t get a fixed gap. A letter
-or digit followed by a period, comma, colon, semicolon, apostrophe, closing quote or hyphen is tucked
-by how far its edge recedes at the height of the mark, beyond the recession the per-glyph model has
-already credited: `V.` `y.` `L'` `P.` `7.` leave a hole under an arm or a bar that no class can fill,
-while `n.` and `o.` stay as they were.
+Explicit glyph pairs sit in front of the classes, because a sum of two per-glyph averages cannot see
+how two shapes face each other, and cannot see a collision at all. The crossbars of f and t get a
+fixed gap. A letter followed by a period, comma, colon, semicolon, apostrophe, closing quote or hyphen
+is tucked by how far its edge recedes at the height of the mark, beyond the recession the per-glyph
+model has already credited: `V.` `y.` `L'` `P.` leave a hole under an arm or a bar that no class can
+fill, while `n.` and `o.` stay as they were. Last, no pair of letters, or of a letter and a mark, may
+end up with its nearest ink closer than a floor: the class model has no collision limit, and it pulled
+the facing bars of TT, FT, ET and TY into each other.
+
+Digits are never kerned: they are tabular and every digit pair must keep its advance.
 """
 
 import unicodedata
@@ -22,6 +26,7 @@ import unicodedata
 from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
 
 from outline import flatten_contours
+from caps import SIMILAR
 from glyphs import glyph_path
 from spacing import _scan, is_text, optical_edges, stem_width
 from tuck import optical_bearings
@@ -41,6 +46,8 @@ MARK_LOOSEN = 40
 TWO_PART_MARKS = ":;"
 CREDIT = 0.6
 ROW = 20
+FLOOR_ROW = 10
+FLOOR_RATIO = 0.45
 
 
 def plan(bearings, share=0.7, tighten_limit=70, loosen_limit=25, floor=8, step=2):
@@ -73,12 +80,12 @@ def bar_pairs(font, gap):
     for ch in "ft":
         xs = _scan(flatten_contours(glyph_path(font.getGlyphSet(), cmap[ord(ch)]), 10), BAR_Y)
         extent[ch] = (xs[0], xs[-1])
-    lines = []
+    pairs = {}
     for a in "ft":
         for b in "ft":
             natural = hmtx[cmap[ord(a)]][0] - extent[a][1] + extent[b][0]
-            lines.append(f"    pos {cmap[ord(a)]} {cmap[ord(b)]} {round(gap - natural)};")
-    return lines
+            pairs[(cmap[ord(a)], cmap[ord(b)])] = round(gap - natural)
+    return pairs
 
 
 def _zone(cat, contours):
@@ -91,7 +98,7 @@ def _zone(cat, contours):
 
 
 def mark_pairs(font, old_value, clear=None):
-    """Explicit pairs of a letter or digit and the marks that follow it, tucked by local recession.
+    """Explicit pairs of a letter and the marks that follow it, tucked by local recession.
 
     `old_value(first, second)` is the class kerning the pair would otherwise get; it is added so that
     the explicit pair replaces the class pair without losing it.
@@ -113,7 +120,7 @@ def mark_pairs(font, old_value, clear=None):
     letters = {}
     for cp, name in sorted(cmap.items()):
         cat = unicodedata.category(chr(cp))
-        if not is_text(cp) or name in letters or not (cat[0] == "L" or cat == "Nd"):
+        if not is_text(cp) or name in letters or cat[0] != "L":
             continue
         contours = flatten_contours(glyph_path(gs, name), 10)
         edges = optical_edges(contours, cat)
@@ -132,7 +139,7 @@ def mark_pairs(font, old_value, clear=None):
         if ch in marks:
             plain = sorted(g for g in (nearest(cmap[ord(c)], ch) for c in "abcdefghijklmnopqrstuvwxyz") if g is not None)
             floors[ch] = clear * plain[len(plain) // 2]
-    lines = []
+    pairs = {}
     for name, (cat, contours, edges, right, advance) in letters.items():
         reach, depth = edges[1], edges[3]
         clip = 0.3 * _zone(cat, contours)
@@ -157,18 +164,67 @@ def mark_pairs(font, old_value, clear=None):
                 if gap is not None:
                     total = min(MARK_LOOSEN, max(total, int(round(floors[ch] - gap))))
             if total != before:
-                lines.append(f"    pos {name} {mark} {total};")
-    return lines
+                pairs[(name, mark)] = total
+    return pairs
 
 
-def feature_code(right, left, rules, extra=()):
+def floor_pairs(font, value_of, ratio):
+    """Pairs whose nearest ink would end up closer than `ratio` times the gap of `nn`, with the value that
+    restores it.
+
+    The nearest ink is the smallest horizontal gap, over the heights where both glyphs have ink,
+    between the right edge of the first glyph and the left edge of the second. It is what the eye
+    reads as a near collision, and it is what a sum of per-glyph averages cannot see. A pair that is
+    under the floor even unkerned is loosened, so `TT` (28 units unkerned) is pushed out as well.
+    """
+    cmap, hmtx, gs = font.getBestCmap(), font["hmtx"], font.getGlyphSet()
+    letters = [cmap[ord(c)] for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"]
+    seconds = letters + [cmap[ord(c)] for c in MARK_AFTER + "!?" if ord(c) in cmap]
+    edges = {}
+    for name in set(seconds):
+        contours = flatten_contours(glyph_path(gs, name), 10)
+        left, right = {}, {}
+        for y in range(-300, 800, FLOOR_ROW):
+            xs = _scan(contours, y + 0.5)
+            if xs:
+                left[y], right[y] = xs[0], xs[-1]
+        edges[name] = (left, right)
+    def nearest(a, b):
+        right_a, left_b = edges[a][1], edges[b][0]
+        gaps = [hmtx[a][0] - right_a[y] + left_b[y] for y in right_a if y in left_b]
+        return min(gaps) if gaps else None
+
+    floor = ratio * nearest(cmap[ord("n")], cmap[ord("n")])
+    pairs = {}
+    for a in letters:
+        for b in seconds:
+            gap = nearest(a, b)
+            if gap is not None and gap + value_of(a, b) < floor:
+                pairs[(a, b)] = int(round(floor - gap))
+    return pairs
+
+
+def accent_variants(font):
+    """{base letter: glyph names of its accented forms}, so a pair fixed for H also holds for Ĥ."""
+    variants = {}
+    for cp, name in sorted(font.getBestCmap().items()):
+        ch = chr(cp)
+        if unicodedata.category(ch)[0] != "L":
+            continue
+        base = SIMILAR.get(ch) or (unicodedata.normalize("NFD", ch)[0] if len(unicodedata.normalize("NFD", ch)) > 1 else None)
+        if base and base.isascii() and base.isalpha() and base != ch:
+            variants.setdefault(base, []).append(name)
+    return variants
+
+
+def feature_code(right, left, rules, explicit=None):
     lines = ["languagesystem DFLT dflt;", "languagesystem latn dflt;"]
     for k in sorted({kr for kr, _, _ in rules}):
         lines.append(f"@R{k} = [{' '.join(sorted(right[k]))}];")
     for k in sorted({kl for _, kl, _ in rules}):
         lines.append(f"@L{k} = [{' '.join(sorted(left[k]))}];")
     lines.append("feature kern {")
-    lines += extra
+    lines += [f"    pos {a} {b} {v};" for (a, b), v in sorted((explicit or {}).items())]
     lines += [f"    pos @R{kr} @L{kl} {v};" for kr, kl, v in rules]
     lines.append("} kern;")
     return "\n".join(lines)
@@ -208,6 +264,21 @@ def kern(font, bar_gap=None, left_bias=None, **kwargs):
             return class_value.get((right_class[first], left_class[second]), 0)
         return 0
 
-    code = feature_code(right, left, rules, bar_pairs(font, bar_gap) + mark_pairs(font, old_value))
+    explicit = dict(bar_pairs(font, bar_gap))
+    explicit.update(mark_pairs(font, old_value))
+
+    def value_of(first, second):
+        return explicit.get((first, second), old_value(first, second))
+
+    cmap = font.getBestCmap()
+    letter_names = {cmap[ord(c)]: c for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"}
+    variants = accent_variants(font)
+    for (a, b), value in floor_pairs(font, value_of, FLOOR_RATIO).items():
+        explicit[(a, b)] = value
+        for va in [a] + variants.get(letter_names[a], []):
+            for vb in [b] + (variants.get(letter_names[b], []) if b in letter_names else []):
+                if (va, vb) not in explicit and old_value(va, vb) == old_value(a, b):
+                    explicit[(va, vb)] = value
+    code = feature_code(right, left, rules, explicit)
     addOpenTypeFeaturesFromString(font, code, tables=["GPOS"])
     return target, len(rules)

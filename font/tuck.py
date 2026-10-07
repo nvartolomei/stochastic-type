@@ -44,7 +44,6 @@ MARK_LIMIT = 140
 STEP = 5
 FLOOR = 10
 FIXED_RANGES = [(0x21, 0x7E), (0xA1, 0xBF), (0x2010, 0x205E)]
-NOT_SPACE_RANGES = [(0x21, 0x7E), (0xA1, 0xFF), (0x2010, 0x2027)]
 CASCADE_RANGES = [(0x41, 0x5A), (0x61, 0x7A), (0xC0, 0xD6), (0xD8, 0xF6), (0xF8, 0xFF)]
 
 
@@ -91,9 +90,13 @@ def fixed_glyphs(font):
 
 
 def not_space_glyphs(font):
-    """Glyphs that can follow a mark in running code or markup, as opposed to a space."""
-    return sorted(name for cp, name in font.getBestCmap().items()
-                  if any(lo <= cp <= hi for lo, hi in NOT_SPACE_RANGES))
+    """Every glyph a mark could be followed by in running text, code or markup: all but the spaces.
+
+    A shorter list (ASCII, Latin-1, general punctuation) let a mark move before any other glyph, so
+    `tỉ.ệ`, `x.│` and `ok:→` were tucked.
+    """
+    spaces = {name for cp, name in font.getBestCmap().items() if unicodedata.category(chr(cp)) == "Zs"}
+    return [name for name in font.getGlyphOrder() if name not in spaces and name != ".notdef"]
 
 
 def plan(bearings, marks=(), target=None, share=SHARE, limit=LIMIT, mark_share=MARK_SHARE, mark_limit=MARK_LIMIT):

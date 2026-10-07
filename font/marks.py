@@ -12,6 +12,8 @@ through the components of the composites; scaling only the glyphs the cmap names
 
 from fontTools.pens.boundsPen import BoundsPen
 
+from glyphs import sync_bearing
+
 DOT_RATIO = 1.6
 MARKS = ".,:;!?¡¿…‥‼⁇⁈⁉‽"
 
@@ -68,5 +70,5 @@ def lighten_marks(font, stem, ratio=None):
             for i in range(lo, hi):
                 x, y = coords[i]
                 coords[i] = (round(cx + scale * (x - cx)), round(cy + scale * (y - cy)))
-        glyph.recalcBounds(glyf)
+        sync_bearing(font, name)
     return scale

@@ -61,7 +61,7 @@ sb = 'default_sb * 0.7'
 leading = 1200
 
 
-# Monospace sibling. Same variants and metrics; fixed 580-unit cell, default sidebearings.
+# Monospace sibling. Same variants and metrics; fixed 550-unit cell, default sidebearings.
 # "term" spacing keeps every glyph inside one cell, so em dashes, arrows and ellipses
 # (the characters LLM text leans on) do not break alignment in code blocks and tables.
 # Keep the variants in sync with the plan above.

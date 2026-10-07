@@ -14,14 +14,16 @@ keeps it whole, because a shorter r looks small in a cell where every other lett
 
 The flat-hook t also loses the overshoot the round hook had: its foot sits on the baseline while the
 tail of l and the round letters go 8 units below it, so the t looks lifted. Its foot is lowered to
-l's bottom, and so are the flat bases of the sans a b d u and of the capitals U and G.
+l's bottom. The long flat bases of a b d u and of the capitals U and G stay on the baseline: overshoot
+compensates for curves, and a flat edge 250 to 300 units long that sits 8 below the stems of n h i x z
+H E steps visibly in `und`, `Hand` and `HUG` at heading sizes.
 """
 
 import pathops
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 
 from outline import flatten_contours
-from glyphs import glyph_path
+from glyphs import glyph_path, sync_bearing
 from spacing import _scan
 
 STEM_Y = 250
@@ -60,6 +62,7 @@ def _cut(font, name, box):
     out = TTGlyphPen(None)
     trimmed.draw(out)
     font["glyf"][name] = out.glyph()
+    sync_bearing(font, name)
 
 
 def _bottom(font, name):
@@ -73,7 +76,7 @@ def lower_foot(font, name, dy):
         if y < FOOT_FADE:
             share = 1.0 if y <= FOOT_SOLID else (FOOT_FADE - y) / (FOOT_FADE - FOOT_SOLID)
             glyph.coordinates[i] = (x, round(y + dy * share))
-    glyph.recalcBounds(font["glyf"])
+    sync_bearing(font, name)
 
 
 def _vscan(contours, x):
@@ -113,7 +116,7 @@ def shorten_r(font, ratio):
     for i, (x, y) in enumerate(glyph.coordinates):
         if x > cut_x:
             glyph.coordinates[i] = (round(x - shift), y)
-    glyph.recalcBounds(font["glyf"])
+    sync_bearing(font, name)
 
 
 def match_hooks(font, arms=BAR_ARMS, r_arm=ARM_RATIO, margin=2):
@@ -142,7 +145,7 @@ def match_hooks(font, arms=BAR_ARMS, r_arm=ARM_RATIO, margin=2):
         _cut(font, name, (stem_right + reach * arms[1], bottom, big, top))
 
     floor = _bottom(font, cmap[ord("l")])
-    for ch in "tabduUG":
+    for ch in "t":
         name = cmap[ord(ch)]
         sink = floor - _bottom(font, name)
         if sink < -1:
