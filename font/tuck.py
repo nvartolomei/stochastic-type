@@ -14,6 +14,11 @@ A sentence mark owns the air in its own cell, so in a pair with a letter only th
 whole shift: a letter dragged toward a colon would leave the rest of its word. For the same reason a
 letter never moves away from a neighbour that does not take part (a bracket, digit or quote).
 
+A mark moves only toward the letter before it and only when a space, or the end of the line, follows it.
+Prose ends its marks that way; code does not (`std::vector`, `file.txt`, `self.name`, `http://`), and
+tucking there tore `::` apart by a quarter of a cell and let dots drift. Pairs that start with a mark are
+never tucked.
+
 Four lookups do the work, one per role of the glyph in a loose pair: first, second, the glyph before
 the pair and the glyph after it. Offsets add up when a glyph has several roles. The two outer roles
 are limited to ASCII and Latin-1 letters, which keeps the table small enough to avoid extension
@@ -39,6 +44,7 @@ MARK_LIMIT = 140
 STEP = 5
 FLOOR = 10
 FIXED_RANGES = [(0x21, 0x7E), (0xA1, 0xBF), (0x2010, 0x205E)]
+NOT_SPACE_RANGES = [(0x21, 0x7E), (0xA1, 0xFF), (0x2010, 0x2027)]
 CASCADE_RANGES = [(0x41, 0x5A), (0x61, 0x7A), (0xC0, 0xD6), (0xD8, 0xF6), (0xF8, 0xFF)]
 
 
@@ -84,6 +90,12 @@ def fixed_glyphs(font):
     return out
 
 
+def not_space_glyphs(font):
+    """Glyphs that can follow a mark in running code or markup, as opposed to a space."""
+    return sorted(name for cp, name in font.getBestCmap().items()
+                  if any(lo <= cp <= hi for lo, hi in NOT_SPACE_RANGES))
+
+
 def plan(bearings, marks=(), target=None, share=SHARE, limit=LIMIT, mark_share=MARK_SHARE, mark_limit=MARK_LIMIT):
     """Class pairs and shifts.
 
@@ -102,15 +114,17 @@ def plan(bearings, marks=(), target=None, share=SHARE, limit=LIMIT, mark_share=M
         left.setdefault((is_mark, int(lb // BUCKET)), []).append(name)
     rules = []
     for (m1, kr) in right:
+        if m1:
+            continue
         for (m2, kl) in left:
             gap = (kr + 0.5) * BUCKET + (kl + 0.5) * BUCKET
-            if m1 != m2:
+            if m2:
                 d = quantise(closure_for(gap, target, mark_share, mark_limit / 2))
-                shifts = (d, 0, 0, 0) if m1 else (0, -d, 0, 0)
+                shifts = (0, -d, 0, 0)
             else:
                 closure = closure_for(gap, target, share, limit)
                 near, far = quantise(REACH[0] * closure), quantise(REACH[1] * closure)
-                shifts = (near, -near, 0, 0) if m1 else (near, -near, far, -far)
+                shifts = (near, -near, far, -far)
             if any(shifts):
                 rules.append((m1, kr, m2, kl, shifts))
     return target, right, left, rules
@@ -120,7 +134,7 @@ def class_name(side, is_mark, k):
     return f"@{side}{'M' if is_mark else ''}{k}"
 
 
-def feature_code(right, left, rules, fixed, cascade):
+def feature_code(right, left, rules, fixed, cascade, not_space):
     lines = ["languagesystem DFLT dflt;", "languagesystem latn dflt;"]
     for m, k in sorted({(m, k) for m, k, _, _, _ in rules}):
         lines.append(f"{class_name('R', m, k)} = [{' '.join(sorted(right[(m, k)]))}];")
@@ -128,23 +142,24 @@ def feature_code(right, left, rules, fixed, cascade):
         lines.append(f"{class_name('L', m, k)} = [{' '.join(sorted(left[(m, k)]))}];")
     lines.append(f"@FIXED = [{' '.join(fixed)}];")
     lines.append(f"@LETTER = [{' '.join(cascade)}];")
+    lines.append(f"@NOTSPACE = [{' '.join(not_space)}];")
 
     def pair(m1, kr, m2, kl):
         return class_name("R", m1, kr), class_name("L", m2, kl)
 
-    def lookup(name, role, template, guard):
+    def lookup(name, role, template, guard, mark_guard=None):
         lines.append(f"lookup {name} {{")
         used = [(m1, kr, m2, kl, s[role]) for m1, kr, m2, kl, s in rules if s[role]]
         for m1, kr, m2, kl, _ in used:
             r, l = pair(m1, kr, m2, kl)
-            lines.append("    " + guard.format(r=r, l=l))
+            lines.append("    " + (mark_guard if m2 and mark_guard else guard).format(r=r, l=l))
         for m1, kr, m2, kl, v in used:
             r, l = pair(m1, kr, m2, kl)
             lines.append("    " + template.format(r=r, l=l, v=v))
         lines.append(f"}} {name};")
 
     lookup("TUCK_FIRST", 0, "pos {r}' <{v} 0 0 0> {l};", "ignore pos @FIXED {r}' {l};")
-    lookup("TUCK_SECOND", 1, "pos {r} {l}' <{v} 0 0 0>;", "ignore pos {r} {l}' @FIXED;")
+    lookup("TUCK_SECOND", 1, "pos {r} {l}' <{v} 0 0 0>;", "ignore pos {r} {l}' @FIXED;", "ignore pos {r} {l}' @NOTSPACE;")
     lookup("TUCK_BEFORE", 2, "pos @LETTER' <{v} 0 0 0> {r} {l};", "ignore pos @FIXED @LETTER' {r} {l};")
     lookup("TUCK_AFTER", 3, "pos {r} {l} @LETTER' <{v} 0 0 0>;", "ignore pos {r} {l} @LETTER' @FIXED;")
     lines.append("feature kern { lookup TUCK_FIRST; lookup TUCK_SECOND; lookup TUCK_BEFORE; lookup TUCK_AFTER; } kern;")
@@ -159,6 +174,6 @@ def tuck(font, **kwargs):
     target, right, left, rules = plan(bearings, marks, **kwargs)
     cascade = sorted({name for cp, name in cmap.items()
                       if any(lo <= cp <= hi for lo, hi in CASCADE_RANGES) and name in bearings})
-    code = feature_code(right, left, rules, fixed_glyphs(font), cascade)
+    code = feature_code(right, left, rules, fixed_glyphs(font), cascade, not_space_glyphs(font))
     addOpenTypeFeaturesFromString(font, code, tables=["GPOS"])
     return target, len(rules)
