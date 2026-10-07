@@ -8,19 +8,36 @@ pairs, a little looser for tight ones.
 
 Classes are 4-unit buckets of optical bearing, fine enough that the estimate carries no visible
 quantisation noise and coarse enough that the class pair table stays small.
+
+Three kinds of explicit glyph pair sit in front of the classes, because a sum of two per-glyph
+averages cannot see how two shapes face each other. The crossbars of f and t get a fixed gap. A letter
+or digit followed by a period, comma, colon, semicolon, apostrophe, closing quote or hyphen is tucked
+by how far its edge recedes at the height of the mark, beyond the recession the per-glyph model has
+already credited: `V.` `y.` `L'` `P.` `7.` leave a hole under an arm or a bar that no class can fill,
+while `n.` and `o.` stay as they were.
 """
+
+import unicodedata
 
 from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
 
 from outline import flatten_contours
 from glyphs import glyph_path
-from spacing import _scan, stem_width
+from spacing import _scan, is_text, optical_edges, stem_width
 from tuck import optical_bearings
 
 BUCKET = 4
 BAR_Y = 470
 BAR_GAP_RATIO = 0.85
 LEFT_BIAS = {"t": 25, "f": 25}
+MARK_AFTER = ".,:;'\"\u2019\u201d-"
+MARK_WINDOW = 60
+MARK_DEADBAND = 20
+MARK_SHARE = 1.0
+MARK_LIMIT = 140
+MARK_FLOOR = 10
+CREDIT = 0.6
+ROW = 20
 
 
 def plan(bearings, share=0.7, tighten_limit=70, loosen_limit=25, floor=8, step=2):
@@ -58,6 +75,59 @@ def bar_pairs(font, gap):
         for b in "ft":
             natural = hmtx[cmap[ord(a)]][0] - extent[a][1] + extent[b][0]
             lines.append(f"    pos {cmap[ord(a)]} {cmap[ord(b)]} {round(gap - natural)};")
+    return lines
+
+
+def _zone(cat, contours):
+    if cat in ("Ll", "Lo", "Lm"):
+        return 504
+    if cat in ("Lu", "Lt"):
+        return 690
+    ys = [p[1] for pts in contours for p in pts]
+    return max(ys) - min(ys)
+
+
+def mark_pairs(font, old_value):
+    """Explicit pairs of a letter or digit and the marks that follow it, tucked by local recession.
+
+    `old_value(first, second)` is the class kerning the pair would otherwise get; it is added so that
+    the explicit pair replaces the class pair without losing it.
+    """
+    cmap, gs = font.getBestCmap(), font.getGlyphSet()
+    marks = {ch: cmap[ord(ch)] for ch in MARK_AFTER if ord(ch) in cmap}
+    mark_rows = {}
+    for ch, name in marks.items():
+        contours = flatten_contours(glyph_path(gs, name), 10)
+        ys = [p[1] for pts in contours for p in pts]
+        mark_rows[ch] = [y for y in range(int(min(ys)) // ROW * ROW, int(max(ys)) + 1, ROW) if _scan(contours, y + 0.5)]
+    lines, seen = [], set()
+    for cp, name in sorted(cmap.items()):
+        cat = unicodedata.category(chr(cp))
+        if not is_text(cp) or name in seen or not (cat[0] == "L" or cat == "Nd"):
+            continue
+        seen.add(name)
+        contours = flatten_contours(glyph_path(gs, name), 10)
+        edges = optical_edges(contours, cat)
+        if edges is None:
+            continue
+        reach, depth = edges[1], edges[3]
+        clip = 0.3 * _zone(cat, contours)
+        right = {y: (lambda xs: xs[-1] if xs else None)(_scan(contours, y + 0.5)) for y in range(-300, 800, ROW)}
+        for ch, mark in marks.items():
+            local = []
+            for y in mark_rows[ch]:
+                near = [min(clip, reach - right[yy]) for yy in range(y - MARK_WINDOW, y + MARK_WINDOW + 1, ROW)
+                        if right.get(yy) is not None]
+                if near:
+                    local.append(min(near))
+            if not local:
+                continue
+            excess = sum(local) / len(local) - CREDIT * depth - MARK_DEADBAND
+            if excess <= 0:
+                continue
+            value = -min(MARK_LIMIT, int(round(MARK_SHARE * excess / 2) * 2))
+            if -value >= MARK_FLOOR:
+                lines.append(f"    pos {name} {mark} {old_value(name, mark) + value};")
     return lines
 
 
@@ -99,6 +169,15 @@ def kern(font, bar_gap=None, left_bias=None, **kwargs):
     if bar_gap is None:
         bar_gap = round(BAR_GAP_RATIO * stem_width(font))
     target, right, left, rules = plan(biased_bearings(font, LEFT_BIAS if left_bias is None else left_bias), **kwargs)
-    code = feature_code(right, left, rules, bar_pairs(font, bar_gap))
+    right_class = {name: k for k, names in right.items() for name in names}
+    left_class = {name: k for k, names in left.items() for name in names}
+    class_value = {(kr, kl): v for kr, kl, v in rules}
+
+    def old_value(first, second):
+        if first in right_class and second in left_class:
+            return class_value.get((right_class[first], left_class[second]), 0)
+        return 0
+
+    code = feature_code(right, left, rules, bar_pairs(font, bar_gap) + mark_pairs(font, old_value))
     addOpenTypeFeaturesFromString(font, code, tables=["GPOS"])
     return target, len(rules)
