@@ -1,4 +1,4 @@
-"""Gives the hooks of t, f and j the length of l's tail, and shortens the crossbars to match.
+"""Gives the hooks of t, f and j the length of l's tail, shortens the crossbars to match and the arm of the sans r.
 
 Iosevka's flat hooks run as far as the crossbar's arm (the foot of t and the top hook of f are as long
 as their arms), while the tail of l and the hook of j are about half of that. With all four ending in
@@ -6,6 +6,11 @@ the same flat L-turn they read as one family only if they are equally long, so t
 cut back to l's reach. The flat-hook variants also draw longer crossbars than the round ones (the bar
 of t came out wider than an n in the monospace), so the arms of both bars are cut to a multiple of
 the same reach. Every cut is a vertical line across a flat end, so no curve is touched.
+
+The r is Iosevka's flat-top one, whose arm is a rounded corner into a flat run, the same gesture as the
+top of f. In the sans its arm is cut, with a vertical line across the flat end, to a fraction of the
+reach of the shoulder of n; the monospace keeps it whole, because a shorter r looks small in a cell
+where every other letter fills its width.
 
 The flat-hook t also loses the overshoot the round hook had: its foot sits on the baseline while the
 tail of l and the round letters go 8 units below it, so the t looks lifted. Its foot is lowered to
@@ -25,6 +30,8 @@ BAR_ARMS = (1.0, 1.3)
 MONO_BAR_ARMS = (0.72, 1.0)
 BAR_BAND = (380, 515)
 FOOT_SOLID, FOOT_FADE = 90, 220
+ARM_RATIO = 0.72
+MONO_ARM_RATIO = None
 
 
 def _contours(font, name):
@@ -69,9 +76,22 @@ def lower_foot(font, name, dy):
     glyph.recalcBounds(font["glyf"])
 
 
-def match_hooks(font, arms=BAR_ARMS, margin=2):
+def shorten_r(font, ratio):
+    """Cuts the arm of r to `ratio` times the reach of the shoulder of n."""
+    cmap = font.getBestCmap()
+    n = _contours(font, cmap[ord("n")])
+    n_reach = max(p[0] for c in n for p in c if p[1] > 400) - _scan(n, STEM_Y)[1]
+    name = cmap[ord("r")]
+    r = _contours(font, name)
+    limit = _scan(r, STEM_Y)[1] + ratio * n_reach
+    if max(p[0] for c in r for p in c if p[1] > 300) > limit + 2:
+        _cut(font, name, (limit, 300, 2000, 2000))
+
+
+def match_hooks(font, arms=BAR_ARMS, r_arm=ARM_RATIO, margin=2):
     """Cuts the foot of t, the top hook of f and the hook of j back to l's reach, and the crossbar arms of
-    t and f to `arms` (left, right) times that reach. Returns the reach used."""
+    t and f to `arms` (left, right) times that reach, and the arm of r to `r_arm` times the reach of the
+    shoulder of n (not at all when None). Returns the reach used."""
     reach = tail_reach(font)
     cmap = font.getBestCmap()
     big = 2000
@@ -101,4 +121,6 @@ def match_hooks(font, arms=BAR_ARMS, margin=2):
     stem_left = _scan(_contours(font, j), STEM_Y)[-2]
     if stem_left - min(p[0] for c in _contours(font, j) for p in c if p[1] < 0) > reach + margin:
         _cut(font, j, (-big, -big, stem_left - reach, 0))
+    if r_arm:
+        shorten_r(font, r_arm)
     return reach
