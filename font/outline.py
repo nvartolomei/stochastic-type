@@ -151,6 +151,9 @@ def walk_contours(path, P, run_fn):
     """Rebuild `path`, passing every curved run to run_fn(pts, cyclic, segs).
 
     run_fn returns replacement segments or None to keep the original curve.
+    A run that ends against a smooth, non-line neighbour is kept as is: the neighbour is part of the
+    same curve (the base splits long curves into many small quadratics, most of them too flat to count
+    as curved), and moving only some of it leaves a kink where the run stops.
     Near-axis straight lines are snapped afterwards.
     """
     pen = SegPen()
@@ -183,6 +186,13 @@ def walk_contours(path, P, run_fn):
                 while j + 1 < n and curved[(s0 + j + 1) % n] and not corner_after[(s0 + j) % n]:
                     j += 1
                 run = [segs[(s0 + q) % n] for q in range(i, j + 1)]
+                first, last = (s0 + i) % n, (s0 + j) % n
+                open_start = segs[first - 1][0] != "L" and not corner_after[first - 1]
+                open_end = segs[(last + 1) % n][0] != "L" and not corner_after[last]
+                if open_start or open_end:
+                    new += run
+                    i = j + 1
+                    continue
                 pts = [run[0][1]]
                 for s in run:
                     pts += flatten(s, P["samples"])
