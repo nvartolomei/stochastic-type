@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stochastic Type — specimen</title>
+<style>
+@font-face { font-family: "Stochastic Sans"; font-weight: 400; font-style: normal; src: url("StochasticSans-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Stochastic Sans"; font-weight: 700; font-style: normal; src: url("StochasticSans-Bold.ttf") format("truetype"); }
+@font-face { font-family: "Stochastic Mono"; font-weight: 400; font-style: normal; src: url("StochasticMono-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Stochastic Mono"; font-weight: 700; font-style: normal; src: url("StochasticMono-Bold.ttf") format("truetype"); }
+
+:root {
+  --bg: #fbfaf7; --fg: #1b1b1a; --muted: #6b6a66; --rule: #dedbd3; --card: #fff; --accent: #c2410c;
+  --fs: 17px; --lh: 1.6; --ls: 0em;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #151514; --fg: #ecebe6; --muted: #9a988f; --rule: #34332f; --card: #1d1d1b; --accent: #fb923c; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.6 "Stochastic Sans", system-ui, sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 32px 20px 96px; }
+h1, h2, h3 { font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; margin: 0; }
+h1 { font-size: clamp(40px, 8vw, 84px); }
+h2 { font-size: 30px; margin: 72px 0 16px; }
+h3 { font-size: 20px; margin: 28px 0 8px; }
+p { margin: 0 0 1em; max-width: 62ch; }
+.lede { font-size: 22px; color: var(--muted); max-width: 40ch; margin-top: 16px; }
+.mono, .label { font-family: ui-monospace, Menlo, monospace; }
+.label { font-size: 12px; line-height: 1.3; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.note { color: var(--muted); font-size: 15px; max-width: 70ch; }
+.card { background: var(--card); border: 1px solid var(--rule); border-radius: 12px; padding: 20px; }
+.card p { max-width: none; }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.g2 { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 640px) { .g2 { grid-template-columns: 1fr; } }
+.big { font-size: 30px; line-height: 1.15; font-weight: 700; margin: 0 0 12px; }
+
+.bar { position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center;
+  background: var(--bg); border-bottom: 1px solid var(--rule); padding: 12px 20px; margin: 0 -20px 24px;
+  font: 13px ui-monospace, Menlo, monospace; }
+.bar label { display: flex; gap: 8px; align-items: center; color: var(--muted); }
+.bar input[type=range] { width: 120px; }
+
+.read { background: var(--card); border: 1px solid var(--rule); border-radius: 16px; padding: 32px;
+  font-size: var(--fs); line-height: var(--lh); letter-spacing: var(--ls); }
+.read h1 { font-size: 2.4em; }
+.read h3 { font-size: 1.2em; margin: 1.6em 0 .4em; }
+.read p, .read ul { max-width: 64ch; }
+.read .meta { color: var(--muted); font-size: .85em; margin: .5em 0 1.6em; }
+.read blockquote { margin: 1.2em 0; padding: .7em 1.1em; border-left: 4px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent); max-width: 64ch; }
+.read ul { padding-left: 1.2em; }
+.read li { margin-bottom: .3em; }
+.read table { border-collapse: collapse; width: 100%; max-width: 520px; margin: 1em 0; }
+.read th, .read td { text-align: left; padding: .5em .7em; border-bottom: 1px solid var(--rule); }
+.read td.n { font-variant-numeric: tabular-nums; }
+
+pre.code { font: 15px/1.5 "Stochastic Mono", ui-monospace, Menlo, monospace; font-kerning: var(--kern, normal); margin: 0 0 14px; background: var(--card);
+  border: 1px solid var(--rule); border-radius: 12px; padding: 16px; overflow-x: auto; tab-size: 4; }
+.mono-face { font-family: "Stochastic Mono", ui-monospace, Menlo, monospace; }
+.glyphs { font-size: 38px; line-height: 1.35; letter-spacing: .02em; overflow-wrap: anywhere; }
+.sizes p { margin: 0 0 6px; max-width: none; }
+</style>
+</head>
+<body>
+<main>
+  <p class="label">Stochastic Sans and Stochastic Mono · static Regular and Bold · built on Iosevka (OFL)</p>
+  <h1>Stochastic Type</h1>
+  <p class="lede">A font built by a stochastic parrot.</p>
+
+  <div class="bar" role="toolbar" aria-label="Specimen controls">
+    <label>Size <input id="fs" type="range" min="14" max="24" step="1" value="17"><output id="fsv">17px</output></label>
+    <label>Line height <input id="lh" type="range" min="1.3" max="2" step="0.05" value="1.6"><output id="lhv">1.6</output></label>
+    <label>Letter spacing <input id="ls" type="range" min="-0.02" max="0.08" step="0.005" value="0"><output id="lsv">0em</output></label>
+    <label>Mono tucking <input id="tuck" type="checkbox" checked></label>
+  </div>
+
+  <h2>Reading test</h2>
+  <p class="note">Long-form prose is the main job. Adjust size, line height and letter spacing and judge whether you could read a few thousand words of it.</p>
+  <article class="read">
+    <h1>Why Churn Rose in Q3</h1>
+    <p class="meta">Generated summary · 3 sources · confidence: medium</p>
+    <p>Churn rose from 2.1% to 3.4% between July and September, but the data tells a less tidy story than the headline suggests. Most of the increase comes from a single cohort that signed up during the spring promotion — and left once the discount ended. Strip that cohort out and the underlying rate barely moved.</p>
+    <p>That distinction matters. A rate that climbs because of one cohort is a <em>pricing</em> problem you can fix with a single decision; a rate that climbs everywhere is a <em>product</em> problem, and those take quarters. We don't have enough evidence to say which of the two this is, so treat the conclusions below as <em>hypotheses</em> rather than findings.</p>
+    <blockquote>The model could not locate the original survey, so the satisfaction figures below are inferred from support tickets and should be treated as estimates.</blockquote>
+    <h3>What changed</h3>
+    <ul>
+      <li>Price increase on the Starter plan (+$4/month, effective 1 Aug)</li>
+      <li>Support response time doubled to 31 hours → more cancellations</li>
+      <li>Annual plans ≈ flat; monthly plans ≥ 2× worse</li>
+      <li>Two integrations were deprecated in July (“Sync” and “Bridge”)</li>
+    </ul>
+    <table>
+      <tr><th>Month</th><th>Churn</th><th>Diff</th></tr>
+      <tr><td>July</td><td class="n">2.1%</td><td class="n">—</td></tr>
+      <tr><td>August</td><td class="n">2.8%</td><td class="n">+0.7</td></tr>
+      <tr><td>September</td><td class="n">3.4%</td><td class="n">+0.6</td></tr>
+    </table>
+    <h3>What we'd check next</h3>
+    <p>First, verify the cohort split ✓ against the billing export, not the dashboard, because the dashboard rounds sign-up dates to the week. Second, confirm the pricing change date — the support timeline suggests it landed on the 3rd, not the 1st. Third, re-run the whole analysis from the raw export, 0 → 1, with the cancelled-then-reactivated accounts counted once instead of twice.</p>
+    <p>None of this is certain. Numbers such as 31 hours, 14.2% and $3.07M were produced by a model summarising other documents, and every one of them should be traced back to its source before anyone acts on it. As the report itself puts it, <em>“a confident tone is not a source.”</em></p>
+    <p class="meta"><i>Sources:</i> <em>Q3 Billing Export</em> (unverified), <em>Support Timeline</em> (partial), <em>Cohort Dashboard</em> (rounded to the week). <b><i>Treat all three as claims.</i></b></p>
+  </article>
+
+  <h2>Weights and italic</h2>
+  <div class="grid g2">
+    <div class="card"><p class="label">Regular · 400</p><p class="big" style="font-weight:400">Probably fine, probably not.</p><p>Language models can write fluent prose, but fluency is not evidence of truth. Treat every number, quote and citation as a claim to check.</p></div>
+    <div class="card"><p class="label">Bold · 700</p><p class="big">Probably fine, probably not.</p><p><b>Language models can write fluent prose, but fluency is not evidence of truth.</b> Treat every number, quote and citation as a claim to check.</p></div>
+    <div class="card"><p class="label">Italic · Regular, synthesized by the browser</p><p class="big" style="font-weight:400;font-style:italic">Probably fine, probably not.</p><p style="font-style:italic">Language models can write fluent prose, but fluency is not evidence of truth. Treat every number, quote and citation as a claim to check.</p></div>
+    <div class="card"><p class="label">Bold italic · synthesized by the browser</p><p class="big" style="font-style:italic">Probably fine, probably not.</p><p style="font-style:italic"><b>Language models can write fluent prose, but fluency is not evidence of truth.</b> Treat every number, quote and citation as a claim to check.</p></div>
+  </div>
+
+  <h2>Characters</h2>
+  <p class="note">Box drawing, blocks, Braille and the other terminal graphics are in both fonts but only line up in Stochastic Mono; see the monospace section below.</p>
+  <div class="card glyphs">
+    <div>Tiếng Việt: ệ ắ ờ ữ ý — Ångström, Łódź, İstanbul, Ærø</div>
+    <div>∑ ∫ ∞ ≈ ≠ ≤ ≥ ± × ÷ √ ∂ ∇ ∈ ∀ ∃ → ⇒ ↔ ⟶ ⬆ ★ ✓ ✗ ◆ ● ■</div>
+  </div>
+
+  <h2>Monospace</h2>
+  <p class="note">Stochastic Mono has one fixed 550-unit cell. Every glyph, including the em dash, arrows and ellipsis, fits a single cell, so code and tables stay aligned. Box drawing and block characters are the base's own geometry, unrestyled, so lines meet exactly across cells and rows. Narrow letters are nudged toward their neighbours with kerning, inside their own cells; switch it off to compare.</p>
+  <div class="grid g2">
+    <div>
+      <p class="label">Code</p>
+<pre class="code">def verify(claim: str, sources: list[str]) -> bool:
+    """Return True only if every source supports the claim."""
+    if not sources:  # no evidence, no truth …
+        return False
+    return all(s.strip() != "" for s in sources)  # 0 → 1 ✓
+
+# 0O 1lI |!  {}[]()  &amp;@%  =&gt;  -&gt;  !==  ::  ..  ...
+total = 3.4 - 2.1  # +1.3 pts, probably</pre>
+      <p class="label">Regular, Bold and the grid</p>
+<pre class="code"><b>Stochastic Mono Bold</b> — Regular below
+0123456789012345678901234567890123456789
+abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMN
+iiiiiiiiiillllllllllllWWWWWWWWWWmmmmmmmm
+verify fluency rift little willing  WWWW wwww MMMM mmmm</pre>
+    </div>
+    <div>
+      <p class="label">Tables and trees</p>
+<pre class="code">┌───────────┬────────┬───────┐
+│ Month     │ Churn  │ Diff  │
+├───────────┼────────┼───────┤
+│ July      │ 2.1%   │ —     │
+│ August    │ 2.8%   │ +0.7  │
+│ September │ 3.4%   │ +0.6  │
+└───────────┴────────┴───────┘
+
+├── src/
+│   ├── build.py
+│   └── spacing.py
+└── dist/</pre>
+      <p class="label">Drawing and terminal graphics</p>
+<pre class="code">╭───────╮  ╔═══════╗  ▁▂▃▄▅▆▇█ ░▒▓█
+│ round │  ║ double║  ▏▎▍▌▋▊▉█
+╰───────╯  ╚═══════╝  ⠁⠃⠇⡇⣇⣧⣷⣿ ⣀⣤⣶⣿
+  ─┼─ ┏━┳━┓ ◢◣ ◥◤ ●○ ■□ ▲▼ ◆◇</pre>
+    </div>
+  </div>
+
+  <h2>Sizes</h2>
+  <div class="sizes card">
+    <p style="font-size:56px;line-height:1.1;font-weight:700">The quick brown fox jumps</p>
+    <p style="font-size:32px;line-height:1.2">The quick brown fox jumps over the lazy dog</p>
+    <p style="font-size:20px">The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.</p>
+    <p style="font-size:16px">The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. 0123456789</p>
+    <p style="font-size:14px">The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. 0123456789</p>
+    <p style="font-size:12px">The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. 0123456789</p>
+  </div>
+
+  <h2>Glyphs</h2>
+  <div class="card glyphs">
+    <div>ABCDEFGHIJKLMNOPQRSTUVWXYZ</div>
+    <div>abcdefghijklmnopqrstuvwxyz</div>
+    <div>0123456789 &amp;@%$#*+=?!.,;:'"()[]{}/\-_~</div>
+    <div>→ ← ↑ ↓ ≈ ≠ ≤ ≥ − ✓ ✗ — – … “quotes” ‘single’ © ® ™ € £ ¥ éèêë ñ ü ß ç</div>
+    <div style="font-weight:700">ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</div>
+    <div style="font-style:italic">ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</div>
+  </div>
+
+  <h2>Status</h2>
+  <div class="card">
+    <p><b>Covered:</b> Latin including Vietnamese, common punctuation and currency, arrows, math operators, geometric shapes and many symbols, plus box drawing, block elements, Braille and the Powerline and legacy-computing graphics terminals use. Regular and Bold.</p>
+    <p><b>Monospace:</b> Stochastic Mono, Regular and Bold, shares the letterforms and weights but not the spacing. It keeps a fixed 550-unit cell, and narrow letters (<i>r i f l t</i>) are shifted toward their neighbours by <code>kern</code> positioning so words do not fall apart. Browsers apply it; editors and terminals that ignore kerning show the plain cell.</p>
+    <p><b>Italic:</b> there is no designed italic. Wherever the page shows italic, the browser slants the upright letters (a synthesized oblique), so the letterforms are not redrawn and the slant angle varies by browser. A true oblique can be built from Iosevka's slope settings if it turns out to matter.</p>
+    <p><b>Not covered:</b> every non-Latin script (Greek, Cyrillic, CJK, Arabic, Hebrew, Indic and others) and emoji. They fall back to the system font. Greek letters used as math symbols (Δ π μ) fall back too.</p>
+    <p><b>Spacing:</b> side bearings are set from each letter's outline, so letters are not centred in equal cells. Use the letter-spacing slider to see the text looser.</p>
+  </div>
+</main>
+<script>
+(function () {
+  var root = document.documentElement;
+  function bind(id, outId, prop, unit) {
+    var input = document.getElementById(id), out = document.getElementById(outId);
+    function apply() { root.style.setProperty(prop, input.value + unit); out.textContent = input.value + unit; }
+    input.addEventListener('input', apply);
+  }
+  bind('fs', 'fsv', '--fs', 'px');
+  bind('ls', 'lsv', '--ls', 'em');
+  var tuck = document.getElementById('tuck');
+  tuck.addEventListener('change', function () { root.style.setProperty('--kern', tuck.checked ? 'normal' : 'none'); });
+  var lh = document.getElementById('lh');
+  lh.addEventListener('input', function () { root.style.setProperty('--lh', lh.value); document.getElementById('lhv').textContent = lh.value; });
+})();
+</script>
+</body>
+</html>
