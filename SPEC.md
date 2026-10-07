@@ -96,6 +96,7 @@ For each text glyph the left and right ink edges are measured over its zone (x-h
 
 - Python 3.10 or newer, managed with **uv** (`pyproject.toml`, `uv.lock`). Dependencies: `fonttools` and `skia-pathops` only. Node and npm are needed to build Iosevka; `git` to fetch it.
 - **`make`** builds everything and is incremental: the Iosevka base (stamp `build/base/.built`) rebuilds only when `font/iosevka-plan.toml` or `font/iosevka.py` changes; each font rebuilds when the base or any script in `font/` changes; the specimen and licence are copies. `make -j2` builds in parallel; `make clean` removes `dist/`; `make distclean` also removes `build/` and `.venv`.
+- Builds are reproducible: font timestamps are fixed (`SOURCE_DATE_EPOCH`, or a constant release date), so a fresh build is byte-identical to the committed `dist/` and a clean `git status` after `make` means the fonts are current.
 - `build/` (Iosevka checkout, base fonts, scratch files) and `.venv/` are not committed.
 - Per-font entry point: `uv run font/build.py BASE.ttf OUT.ttf --weight Regular|Bold [--mono]`.
 - Tuning constants live at the top of `font/build.py` (`TARGET_STEM`, `STYLE`, `SPACING`, `CLOSE_RADIUS`, `MONO_FILL`) and in `font/tuck.py` and `font/charset.py`.

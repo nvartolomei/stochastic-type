@@ -10,12 +10,14 @@ line metrics.
 """
 
 import argparse
+import os
 import sys
 from array import array
 from pathlib import Path
 
 from fontTools import subset
 from fontTools.pens.boundsPen import BoundsPen
+from fontTools.misc.timeTools import epoch_diff
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont
 
@@ -36,6 +38,8 @@ STYLE = dict(squircle_n=3.2)
 CLOSE_RADIUS = 7
 SPACING = dict(target=80, strength=0.6)
 ASCENDER, DESCENDER = 920, -280
+# Builds are reproducible: font timestamps come from SOURCE_DATE_EPOCH, or this fixed release date.
+RELEASE_EPOCH = 1790000000
 MONO_FILL = dict(fill_chars="WwMm", fill_close=22)
 
 
@@ -77,6 +81,9 @@ def finish(font):
         if tag in font:
             del font[tag]
     font["head"].fontRevision = float(VERSION)
+    stamp = int(os.environ.get("SOURCE_DATE_EPOCH", RELEASE_EPOCH)) - epoch_diff
+    font["head"].created = font["head"].modified = stamp
+    font.recalcTimestamp = False
     glyf = font["glyf"]
     for n in font.getGlyphOrder():
         g = glyf[n]
