@@ -7,10 +7,10 @@ cut back to l's reach. The flat-hook variants also draw longer crossbars than th
 of t came out wider than an n in the monospace), so the arms of both bars are cut to a multiple of
 the same reach. Every cut is a vertical line across a flat end, so no curve is touched.
 
-The r is Iosevka's flat-top one, whose arm is a rounded corner into a flat run, the same gesture as the
-top of f. In the sans its arm is cut, with a vertical line across the flat end, to a fraction of the
-reach of the shoulder of n; the monospace keeps it whole, because a shorter r looks small in a cell
-where every other letter fills its width.
+The r is Iosevka's flat-top one, whose arm is a rounded corner into a flat run that ends in a curl, the
+same gesture as the top of f. In the sans the arm is shortened to a fraction of the reach of the shoulder
+of n by taking a slice out of the middle of the flat run (the curl at the tip stays whole); the monospace
+keeps it whole, because a shorter r looks small in a cell where every other letter fills its width.
 
 The flat-hook t also loses the overshoot the round hook had: its foot sits on the baseline while the
 tail of l and the round letters go 8 units below it, so the t looks lifted. Its foot is lowered to
@@ -76,16 +76,44 @@ def lower_foot(font, name, dy):
     glyph.recalcBounds(font["glyf"])
 
 
+def _vscan(contours, x):
+    """Heights at which the outline crosses the vertical line at x, sorted."""
+    ys = []
+    for pts in contours:
+        for i, (x0, y0) in enumerate(pts):
+            x1, y1 = pts[(i + 1) % len(pts)]
+            if (x0 <= x < x1) or (x1 <= x < x0):
+                ys.append(y0 + (x - x0) * (y1 - y0) / (x1 - x0))
+    return sorted(ys)
+
+
 def shorten_r(font, ratio):
-    """Cuts the arm of r to `ratio` times the reach of the shoulder of n."""
+    """Shortens the arm of r to `ratio` times the reach of the shoulder of n.
+
+    A slice is taken out of the middle of the arm's flat run and the end is moved back against the
+    rest, so the curl at the tip keeps its shape. Cutting the end instead left a slanted stub.
+    """
     cmap = font.getBestCmap()
     n = _contours(font, cmap[ord("n")])
     n_reach = max(p[0] for c in n for p in c if p[1] > 400) - _scan(n, STEM_Y)[1]
     name = cmap[ord("r")]
     r = _contours(font, name)
-    limit = _scan(r, STEM_Y)[1] + ratio * n_reach
-    if max(p[0] for c in r for p in c if p[1] > 300) > limit + 2:
-        _cut(font, name, (limit, 300, 2000, 2000))
+    stem_right = _scan(r, STEM_Y)[1]
+    tip = max(p[0] for c in r for p in c if p[1] > 300)
+    excess = (tip - stem_right) - ratio * n_reach
+    if excess < 2:
+        return
+    top = max(p[1] for c in r for p in c if p[0] > stem_right + 2)
+    flat = [x for x in range(int(stem_right) + 2, int(tip), 2) if _vscan(r, x)[-1] >= top - 1.5]
+    if not flat:
+        return
+    cut_x = (min(flat) + max(flat)) / 2
+    shift = min(excess, 0.8 * (max(flat) - min(flat)))
+    glyph = font["glyf"][name]
+    for i, (x, y) in enumerate(glyph.coordinates):
+        if x > cut_x:
+            glyph.coordinates[i] = (round(x - shift), y)
+    glyph.recalcBounds(font["glyf"])
 
 
 def match_hooks(font, arms=BAR_ARMS, r_arm=ARM_RATIO, margin=2):
