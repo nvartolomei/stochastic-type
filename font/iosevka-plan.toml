@@ -1,5 +1,6 @@
 # Build plan for the Iosevka base of Stochastic Sans. font/iosevka.py copies it into the Iosevka checkout.
-# Anatomy: double-storey a, f crossbar level with t, single-storey g, straight y, slashed zero, serifed capital I, short-tailed l, narrow j.
+# Anatomy: double-storey a, flat L-turn hooks on t, f, j and g (t, f and j are cut to the length of l's tail by font/hooks.py),
+# single-storey g, straight y, slashed zero, serifed capital I, short-tailed l.
 # Metrics: a tall x-height (504) and cap height 690 for long prose, wide letter bodies
 # (cell 530, sidebearings x0.7). Advances are replaced by font/spacing.py, so only the bodies matter.
 
@@ -13,11 +14,12 @@ noLigation = true
 
 [buildPlans.IosevkaStochastic.variants.design]
 a = "double-storey-serifless"
-f = "serifless-crossbar-at-x-height"
-g = "single-storey-serifless"
+f = "flat-hook-serifless-crossbar-at-x-height"
+t = "flat-hook"
+g = "single-storey-flat-hook-serifless"
 y = "straight-serifless"
 i = "serifless"
-j = "narrow-serifless"
+j = "flat-hook-serifless"
 l = "semi-tailed"
 r = "compact-serifless"
 capital-i = "serifed"
@@ -69,11 +71,12 @@ noLigation = true
 
 [buildPlans.IosevkaStochasticMono.variants.design]
 a = "double-storey-serifless"
-f = "serifless-crossbar-at-x-height"
-g = "single-storey-serifless"
+f = "flat-hook-serifless-crossbar-at-x-height"
+t = "flat-hook"
+g = "single-storey-flat-hook-serifless"
 y = "straight-serifless"
 i = "serifed"
-j = "narrow-serifed"
+j = "flat-hook-serifed"
 l = "serifed-flat-tailed"
 capital-i = "serifed"
 zero = "slashed"

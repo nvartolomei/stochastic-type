@@ -3,10 +3,11 @@
 
     python font/build.py BASE.ttf OUT.ttf --weight Regular|Bold [--mono]
 
-Subset to the target codepoints, scale to the target x-height, thicken or thin to the target
-stem, push bowls toward squircles (squarify.py), fill slivers, snap near-axis lines, respace
-(spacing.py) and add pair kerning (kerning.py) or, for the monospace build, contextual tucking
-(tuck.py), then rename and set line metrics.
+Subset to the target codepoints, scale to the target x-height, cut the hooks of t, f and j back to
+the length of l's tail (hooks.py), thicken or thin to the target stem, push bowls toward
+squircles (squarify.py), fill slivers, snap near-axis lines, respace (spacing.py) and add pair
+kerning (kerning.py) or, for the monospace build, contextual tucking (tuck.py), then rename and set
+line metrics.
 """
 
 import argparse
@@ -25,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from charset import target_codepoints  # noqa: E402
 from restyle import rescale, restyle_font  # noqa: E402
 from spacing import letterspace, stem_width  # noqa: E402
+from hooks import BAR_ARMS, MONO_BAR_ARMS, match_hooks  # noqa: E402
 from kerning import kern  # noqa: E402
 from tuck import tuck  # noqa: E402
 
@@ -129,6 +131,7 @@ def build(src, out, weight, mono=False):
     font = TTFont(src)
     subset_to(font, target_codepoints())
     rescale(font, TARGET_XHEIGHT / measure(font, "x")[3])
+    match_hooks(font, MONO_BAR_ARMS if mono else BAR_ARMS)
     respaced = 0 if mono else letterspace(font, **SPACING)
     base_stem = stem_width(font)
     cfg = dict(embolden=TARGET_STEM[weight] - base_stem, close=CLOSE_RADIUS, style=STYLE,
