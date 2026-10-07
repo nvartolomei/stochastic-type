@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Turns the Iosevka base into Stochastic Sans.
+"""Turns the Iosevka base into Stochastic Sans and Stochastic Mono.
 
     python font/build.py BASE.ttf OUT.ttf --weight Regular|Bold [--mono]
 
 Subset to the target codepoints, scale to the target x-height, cut the hooks of t, f and j back to
-the length of l's tail (hooks.py), lighten the dots of sentence marks (marks.py), thicken or thin
-to the target stem, push bowls toward squircles (squarify.py), fill slivers, snap near-axis lines,
-respace (spacing.py) and add pair kerning (kerning.py) or, for the monospace build, contextual
-tucking (tuck.py), then rename and set line metrics.
+the length of l's tail and shorten the crossbars and the arm of r (hooks.py), lighten the dots of
+sentence marks (marks.py), respace (spacing.py), fill the counters of W w M m in the monospace,
+add pair kerning (kerning.py) or, for the monospace build, contextual tucking (tuck.py), then
+rename and set line metrics. Stem weight is not touched here: the Iosevka plan sets it.
 """
 
 import argparse
@@ -24,7 +24,7 @@ from fontTools.ttLib import TTFont
 
 sys.path.insert(0, str(Path(__file__).parent))
 from charset import target_codepoints  # noqa: E402
-from restyle import rescale, restyle_font  # noqa: E402
+from glyphs import fill_traps, rescale  # noqa: E402
 from spacing import letterspace, stem_width  # noqa: E402
 from hooks import ARM_RATIO, BAR_ARMS, MONO_ARM_RATIO, MONO_BAR_ARMS, match_hooks  # noqa: E402
 from kerning import kern  # noqa: E402
@@ -37,14 +37,11 @@ VERSION = "0.3"
 WEIGHTS = {"Regular": 400, "Bold": 700}
 
 TARGET_XHEIGHT = 504
-TARGET_STEM = {"Regular": 76, "Bold": 118}
-STYLE = dict(squircle_n=3.2)
-CLOSE_RADIUS = 7
 SPACING = dict(target=80, strength=0.6)
 ASCENDER, DESCENDER = 920, -280
 # Builds are reproducible: font timestamps come from SOURCE_DATE_EPOCH, or this fixed release date.
 RELEASE_EPOCH = 1790000000
-MONO_FILL = dict(fill_chars="WwMm", fill_close=22)
+FILL_CHARS, FILL_RADIUS = "WwMm", 22
 
 
 def measure(font, ch):
@@ -133,13 +130,11 @@ def build(src, out, weight, mono=False):
     subset_to(font, target_codepoints())
     rescale(font, TARGET_XHEIGHT / measure(font, "x")[3])
     match_hooks(font, MONO_BAR_ARMS if mono else BAR_ARMS, MONO_ARM_RATIO if mono else ARM_RATIO)
-    base_stem = stem_width(font)
-    lighten_marks(font, TARGET_STEM[weight], base_stem)
+    stem = stem_width(font)
+    lighten_marks(font, stem)
     respaced = 0 if mono else letterspace(font, **SPACING)
-    cfg = dict(embolden=TARGET_STEM[weight] - base_stem, close=CLOSE_RADIUS, style=STYLE,
-               **(MONO_FILL if mono else {}))
-    log = []
-    restyle_font(font, cfg, log)
+    if mono:
+        fill_traps(font, FILL_CHARS, FILL_RADIUS)
     finish(font)
     if mono:
         tuck(font)
@@ -147,7 +142,7 @@ def build(src, out, weight, mono=False):
         kern(font)
     rename(font, weight, MONO_FAMILY if mono else FAMILY)
     font.save(out)
-    return base_stem, respaced, log
+    return stem, respaced
 
 
 def main():
@@ -157,8 +152,8 @@ def main():
     ap.add_argument("--weight", default="Regular", choices=WEIGHTS)
     ap.add_argument("--mono", action="store_true", help="monospace build: keep the base's advances")
     args = ap.parse_args()
-    stem, respaced, log = build(args.base, args.out, args.weight, args.mono)
-    print(f"{args.out}: base stem {stem:.0f}, {respaced} glyphs respaced, {len(log)} area fallbacks")
+    stem, respaced = build(args.base, args.out, args.weight, args.mono)
+    print(f"{args.out}: stem {stem:.0f}, {respaced} glyphs respaced")
 
 
 if __name__ == "__main__":

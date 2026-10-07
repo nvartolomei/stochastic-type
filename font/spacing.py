@@ -9,7 +9,7 @@ accent components follow their base glyph.
 import unicodedata
 
 from outline import flatten_contours
-from restyle import glyph_path
+from glyphs import glyph_path
 
 TEXT_BLOCKS = [
     (0x20, 0x7E), (0xA0, 0xFF), (0x100, 0x24F), (0x1E00, 0x1EFF), (0x2010, 0x2027), (0x2030, 0x205E), (0x20A0, 0x20CF),

@@ -13,7 +13,7 @@ quantisation noise and coarse enough that the class pair table stays small.
 from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
 
 from outline import flatten_contours
-from restyle import glyph_path
+from glyphs import glyph_path
 from spacing import _scan, stem_width
 from tuck import optical_bearings
 

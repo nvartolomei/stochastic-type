@@ -31,19 +31,11 @@ BLOCKS = [
     ("Powerline", 0xE0A0, 0xE0D7),
 ]
 
-# Glyphs whose exact geometry matters (lines must meet across cells and rows). They are kept as
-# the base drew them and are not restyled.
-EXACT_BLOCKS = [(0x2500, 0x259F), (0x2800, 0x28FF), (0x1FB00, 0x1FBFF), (0xE0A0, 0xE0D7)]
-
 # Long arrows are drawn two cells wide even in fixed-cell spacing, which would break the grid.
 EXCLUDE = set(range(0x27F0, 0x2800)) | {0x2B33}
 
 SKIP_CATEGORIES = {"Cc", "Cf", "Cs", "Cn", "Mn", "Me", "Zl", "Zp"}
 PRIVATE_USE_OK = (0xE0A0, 0xE0D7)
-
-
-def is_exact(cp):
-    return any(a <= cp <= b for a, b in EXACT_BLOCKS)
 
 
 def target_codepoints():

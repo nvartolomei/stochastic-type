@@ -25,7 +25,7 @@ import unicodedata
 from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
 
 from outline import flatten_contours
-from restyle import glyph_path
+from glyphs import glyph_path
 from spacing import optical_edges
 
 SENTENCE_MARKS = ".,:;!?"

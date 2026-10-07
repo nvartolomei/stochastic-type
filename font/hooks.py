@@ -14,14 +14,14 @@ keeps it whole, because a shorter r looks small in a cell where every other lett
 
 The flat-hook t also loses the overshoot the round hook had: its foot sits on the baseline while the
 tail of l and the round letters go 8 units below it, so the t looks lifted. Its foot is lowered to
-l's bottom, and so is the flat base of the sans a.
+l's bottom, and so are the flat bases of the sans a b d u and of the capitals U and G.
 """
 
 import pathops
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 
 from outline import flatten_contours
-from restyle import glyph_path
+from glyphs import glyph_path
 from spacing import _scan
 
 STEM_Y = 250
@@ -142,7 +142,7 @@ def match_hooks(font, arms=BAR_ARMS, r_arm=ARM_RATIO, margin=2):
         _cut(font, name, (stem_right + reach * arms[1], bottom, big, top))
 
     floor = _bottom(font, cmap[ord("l")])
-    for ch in "ta":
+    for ch in "tabduUG":
         name = cmap[ord(ch)]
         sink = floor - _bottom(font, name)
         if sink < -1:
