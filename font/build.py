@@ -4,9 +4,9 @@
     python font/build.py BASE.ttf OUT.ttf --weight Regular|Bold [--mono]
 
 Subset to the target codepoints, scale to the target x-height, cut the hooks of t, f and j back to
-the length of l's tail and shorten the crossbars and the arm of r (hooks.py), lighten the dots of
-sentence marks (marks.py), respace (spacing.py), fill the counters of W w M m in the monospace,
-add pair kerning (kerning.py) or, for the monospace build, contextual tucking (tuck.py), then
+the length of l's tail and shorten the crossbars and the arm of r (hooks.py), widen the capitals and
+digits of the sans (caps.py), lighten the dots of sentence marks (marks.py), respace
+(spacing.py), fill the counters of W w M m in the monospace, add pair kerning (kerning.py) or, for the monospace build, contextual tucking (tuck.py), then
 rename and set line metrics. Stem weight is not touched here: the Iosevka plan sets it.
 """
 
@@ -24,6 +24,7 @@ from fontTools.ttLib import TTFont
 
 sys.path.insert(0, str(Path(__file__).parent))
 from charset import target_codepoints  # noqa: E402
+from caps import widen_caps  # noqa: E402
 from glyphs import fill_traps, rescale  # noqa: E402
 from spacing import letterspace, stem_width  # noqa: E402
 from hooks import ARM_RATIO, BAR_ARMS, MONO_ARM_RATIO, MONO_BAR_ARMS, match_hooks  # noqa: E402
@@ -37,7 +38,11 @@ VERSION = "0.3"
 WEIGHTS = {"Regular": 400, "Bold": 700}
 
 TARGET_XHEIGHT = 504
-SPACING = dict(target=80, strength=0.6)
+# Bold has smaller counters, so it needs smaller sidebearings and a smaller space to keep the same rhythm.
+SPACING = {
+    "Regular": dict(target=80, strength=0.6, space=320),
+    "Bold": dict(target=62, strength=0.6, space=300),
+}
 ASCENDER, DESCENDER = 920, -280
 # Builds are reproducible: font timestamps come from SOURCE_DATE_EPOCH, or this fixed release date.
 RELEASE_EPOCH = 1790000000
@@ -130,9 +135,11 @@ def build(src, out, weight, mono=False):
     subset_to(font, target_codepoints())
     rescale(font, TARGET_XHEIGHT / measure(font, "x")[3])
     match_hooks(font, MONO_BAR_ARMS if mono else BAR_ARMS, MONO_ARM_RATIO if mono else ARM_RATIO)
+    if not mono:
+        widen_caps(font)
     stem = stem_width(font)
     lighten_marks(font, stem)
-    respaced = 0 if mono else letterspace(font, **SPACING)
+    respaced = 0 if mono else letterspace(font, **SPACING[weight])
     if mono:
         fill_traps(font, FILL_CHARS, FILL_RADIUS)
     finish(font)
