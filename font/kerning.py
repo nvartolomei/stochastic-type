@@ -36,6 +36,9 @@ MARK_DEADBAND = 20
 MARK_SHARE = 1.0
 MARK_LIMIT = 140
 MARK_FLOOR = 10
+MARK_CLEAR = 0.7
+MARK_LOOSEN = 40
+TWO_PART_MARKS = ":;"
 CREDIT = 0.6
 ROW = 20
 
@@ -87,32 +90,52 @@ def _zone(cat, contours):
     return max(ys) - min(ys)
 
 
-def mark_pairs(font, old_value):
+def mark_pairs(font, old_value, clear=None):
     """Explicit pairs of a letter or digit and the marks that follow it, tucked by local recession.
 
     `old_value(first, second)` is the class kerning the pair would otherwise get; it is added so that
     the explicit pair replaces the class pair without losing it.
+
+    The colon and semicolon have a dot at x-height, level with the crossbar of t and the arms of f r y v,
+    where nothing can tuck: the class kerning had pulled their nearest ink to half the usual gap. So
+    for those two marks the nearest ink of every letter keeps at least `clear` times the median gap
+    of the unkerned lowercase pairs, and a letter that is closer than that by nature (`t;`) is loosened.
     """
-    cmap, gs = font.getBestCmap(), font.getGlyphSet()
+    clear = MARK_CLEAR if clear is None else clear
+    cmap, gs, hmtx = font.getBestCmap(), font.getGlyphSet(), font["hmtx"]
     marks = {ch: cmap[ord(ch)] for ch in MARK_AFTER if ord(ch) in cmap}
-    mark_rows = {}
+    mark_rows, mark_left = {}, {}
     for ch, name in marks.items():
         contours = flatten_contours(glyph_path(gs, name), 10)
         ys = [p[1] for pts in contours for p in pts]
         mark_rows[ch] = [y for y in range(int(min(ys)) // ROW * ROW, int(max(ys)) + 1, ROW) if _scan(contours, y + 0.5)]
-    lines, seen = [], set()
+        mark_left[ch] = {y: _scan(contours, y + 0.5)[0] for y in mark_rows[ch]}
+    letters = {}
     for cp, name in sorted(cmap.items()):
         cat = unicodedata.category(chr(cp))
-        if not is_text(cp) or name in seen or not (cat[0] == "L" or cat == "Nd"):
+        if not is_text(cp) or name in letters or not (cat[0] == "L" or cat == "Nd"):
             continue
-        seen.add(name)
         contours = flatten_contours(glyph_path(gs, name), 10)
         edges = optical_edges(contours, cat)
         if edges is None:
             continue
+        right = {y: (lambda xs: xs[-1] if xs else None)(_scan(contours, y + 0.5)) for y in range(-300, 800, ROW)}
+        letters[name] = (cat, contours, edges, right, hmtx[name][0])
+
+    def nearest(name, ch):
+        advance, right = letters[name][4], letters[name][3]
+        gaps = [advance + mark_left[ch][y] - right[y] for y in mark_rows[ch] if right.get(y) is not None]
+        return min(gaps) if gaps else None
+
+    floors = {}
+    for ch in TWO_PART_MARKS:
+        if ch in marks:
+            plain = sorted(g for g in (nearest(cmap[ord(c)], ch) for c in "abcdefghijklmnopqrstuvwxyz") if g is not None)
+            floors[ch] = clear * plain[len(plain) // 2]
+    lines = []
+    for name, (cat, contours, edges, right, advance) in letters.items():
         reach, depth = edges[1], edges[3]
         clip = 0.3 * _zone(cat, contours)
-        right = {y: (lambda xs: xs[-1] if xs else None)(_scan(contours, y + 0.5)) for y in range(-300, 800, ROW)}
         for ch, mark in marks.items():
             local = []
             for y in mark_rows[ch]:
@@ -120,14 +143,21 @@ def mark_pairs(font, old_value):
                         if right.get(yy) is not None]
                 if near:
                     local.append(min(near))
-            if not local:
-                continue
-            excess = sum(local) / len(local) - CREDIT * depth - MARK_DEADBAND
-            if excess <= 0:
-                continue
-            value = -min(MARK_LIMIT, int(round(MARK_SHARE * excess / 2) * 2))
-            if -value >= MARK_FLOOR:
-                lines.append(f"    pos {name} {mark} {old_value(name, mark) + value};")
+            tuck = 0
+            if local:
+                excess = sum(local) / len(local) - CREDIT * depth - MARK_DEADBAND
+                if excess > 0:
+                    tuck = -min(MARK_LIMIT, int(round(MARK_SHARE * excess / 2) * 2))
+                    if -tuck < MARK_FLOOR:
+                        tuck = 0
+            before = old_value(name, mark)
+            total = before + tuck
+            if ch in floors:
+                gap = nearest(name, ch)
+                if gap is not None:
+                    total = min(MARK_LOOSEN, max(total, int(round(floors[ch] - gap))))
+            if total != before:
+                lines.append(f"    pos {name} {mark} {total};")
     return lines
 
 
