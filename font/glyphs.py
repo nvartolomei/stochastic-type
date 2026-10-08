@@ -1,10 +1,21 @@
 """Outline helpers shared by the build steps."""
 
+import unicodedata
+
 import pathops
 from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.recordingPen import DecomposingRecordingPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib.scaleUpem import scale_upem
+
+ACCENT_OVERHANG = 35
+TEXT_BLOCKS = [
+    (0x20, 0x7E), (0xA0, 0xFF), (0x100, 0x24F), (0x1E00, 0x1EFF), (0x2010, 0x2027), (0x2030, 0x205E), (0x20A0, 0x20CF),
+]
+
+
+def is_text(cp):
+    return any(a <= cp <= b for a, b in TEXT_BLOCKS) and unicodedata.category(chr(cp))[0] in "LNPS"
 
 
 def glyph_path(glyph_set, name):
@@ -67,17 +78,18 @@ def _ink(glyph_set, name):
     return pen.bounds
 
 
-def is_accented(glyph_set, glyph):
+def is_accented(glyph_set, glyph, tolerance=ACCENT_OVERHANG):
     """True for a composite whose other components sit over its first one: a letter with an accent.
 
-    The test is that the centre of every other component lies within the ink of the first. Parts set side
-    by side (the two commas of „, the N and o of №, the I and J of Ĳ, the D and z of Ǆ) fail it.
+    The test is that the centre of every other component lies within the ink of the first, give or take
+    the `tolerance` an accent may overhang by (the horn of ư, the dot of ŀ). Parts set side by side (the
+    two commas of „, the N and o of №, the I and J of Ĳ, the D and z of Ǆ) fail it.
     """
     first = glyph.components[0]
     base = _ink(glyph_set, first.glyphName)
     if base is None:
         return True
-    low, high = base[0] + first.x, base[2] + first.x
+    low, high = base[0] + first.x - tolerance, base[2] + first.x + tolerance
     for comp in glyph.components[1:]:
         if getattr(comp, "transform", [[1, 0], [0, 1]]) != [[1, 0], [0, 1]]:
             return False
@@ -91,16 +103,24 @@ def decompose_side_by_side(font):
     """Turns composites built from parts side by side into plain glyphs; returns their names.
 
     Spacing gives a composite the advance of its first component, which is right for an accent and wrong
-    for „ « Ĳ Ǆ ₨ № Ⅲ, whose ink then ran past the advance (up to 1100 units). The base glyph is also
-    edited later (capitals are widened), which would move the other parts of such a glyph against it.
-    As plain glyphs they are spaced from their own outline, or left as Iosevka drew them when they are
-    not text.
+    for „ « Ĳ Ǆ ₨ № Ⅲ ℡, whose ink then ran past the advance (up to 1100 units). The parts are also
+    edited later (spaced, or widened as capitals), which would move them against each other. As plain
+    glyphs they are spaced from their own outline.
+
+    Only glyphs the build edits are touched: a text glyph, or one built from a text glyph. The Braille
+    patterns, arrows and box drawing keep their composites and Iosevka's advances.
     """
     glyf, gs = font["glyf"], font.getGlyphSet()
+    text = {name for cp, name in font.getBestCmap().items() if is_text(cp)}
+
+    def edited(name):
+        glyph = glyf[name]
+        return name in text or glyph.isComposite() and any(edited(c.glyphName) for c in glyph.components)
+
     done = []
     for name in font.getGlyphOrder():
         glyph = glyf[name]
-        if not glyph.isComposite() or len(glyph.components) < 2:
+        if not glyph.isComposite() or len(glyph.components) < 2 or not edited(name):
             continue
         sync_bearing(font, name)
         if is_accented(gs, glyph):

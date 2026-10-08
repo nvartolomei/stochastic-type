@@ -173,6 +173,9 @@ def mark_pairs(font, old_value, clear=None):
 EXTRA_BLOCKS = [(0xC0, 0xFF), (0x100, 0x17F), (0x180, 0x24F), (0x1E00, 0x1EFF)]
 FLOOR_TOP = 950
 ASCII_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+LOOSE_TRIGGER = 0.75
+TOUCH_TRIGGER = 0.3
+PUNCTUATION = "\"#$%&'()*+-/<=>@[\\]^_`{|}~"
 
 
 def other_letters(font):
@@ -227,14 +230,24 @@ def floor_pairs(font, value_of, ratio):
     under the floor even unkerned is loosened, so `TT` (28 units unkerned) is pushed out as well.
     The heights run to 950 so that accents count. Pairs are ASCII letters with ASCII letters and marks,
     and the letters of Latin-1, Extended-A, Extended-B and Latin Extended Additional with the ASCII letters
-    and marks.
+    and marks. Letters that take no class kerning (a wide accent, a stroke, a horn) are also checked
+    against all the other letters, in both orders, and against the ASCII punctuation they may be
+    followed by: `đĩ` overlapped, and the caron of `ľ` reaches over the next glyph. These pairs are only
+    moved when they come closer than `LOOSE_TRIGGER` times the floor (a collision), but then to the
+    floor itself; a pair a few units under the floor is left alone, which keeps the table small. Two
+    letters that do take class kerning follow their base letters, but not their facing bars: `ŢŤ`
+    overlapped like `TT`. Between any two letters outside ASCII a pair is moved only when it comes
+    closer than `TOUCH_TRIGGER` times the floor, that is when the ink touches.
     """
     cmap, hmtx, gs = font.getBestCmap(), font["hmtx"], font.getGlyphSet()
     ascii_names = [cmap[ord(c)] for c in ASCII_LETTERS]
     marks = [cmap[ord(c)] for c in MARK_AFTER + "!?" if ord(c) in cmap]
     others = other_letters(font)
+    plain = plain_letters(font)
+    loose = [name for name in others if name not in plain]
+    punctuation = [cmap[ord(c)] for c in PUNCTUATION if ord(c) in cmap and cmap[ord(c)] not in marks]
     edges = {}
-    for name in set(ascii_names + marks + others):
+    for name in set(ascii_names + marks + others + punctuation):
         contours = flatten_contours(glyph_path(gs, name), 10)
         left, right = {}, {}
         for y in range(-300, FLOOR_TOP, FLOOR_ROW):
@@ -248,12 +261,25 @@ def floor_pairs(font, value_of, ratio):
         gaps = [hmtx[a][0] - right_a[y] + left_b[y] for y in right_a if y in left_b]
         return min(gaps) if gaps else None
 
+    def farthest_in(a):
+        right = edges[a][1]
+        return hmtx[a][0] - max(right.values()) if right else None
+
+    def farthest_out(b):
+        left = edges[b][0]
+        return min(left.values()) if left else None
+
+    slack = {name: (farthest_in(name), farthest_out(name)) for name in edges}
+
     floor = ratio * nearest(cmap[ord("n")], cmap[ord("n")])
     pairs = {}
 
-    def check(a, b):
+    def check(a, b, trigger=1.0):
+        inner, outer = slack[a][0], slack[b][1]
+        if inner is None or outer is None or inner + outer + value_of(a, b) >= trigger * floor:
+            return
         gap = nearest(a, b)
-        if gap is not None and gap + value_of(a, b) < floor:
+        if gap is not None and gap + value_of(a, b) < trigger * floor:
             pairs[(a, b)] = int(round(floor - gap))
 
     for a in ascii_names:
@@ -262,6 +288,15 @@ def floor_pairs(font, value_of, ratio):
     for a in others:
         for b in ascii_names + marks:
             check(a, b)
+    for a in loose:
+        for b in others + punctuation:
+            check(a, b, LOOSE_TRIGGER)
+    for a in others:
+        for b in loose:
+            check(a, b, LOOSE_TRIGGER)
+    for a in others:
+        for b in others:
+            check(a, b, TOUCH_TRIGGER)
     return pairs
 
 

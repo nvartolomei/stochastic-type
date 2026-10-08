@@ -9,16 +9,7 @@ accent components follow their base glyph.
 import unicodedata
 
 from outline import flatten_contours
-from glyphs import glyph_path
-
-ACCENT_OVERHANG = 35
-TEXT_BLOCKS = [
-    (0x20, 0x7E), (0xA0, 0xFF), (0x100, 0x24F), (0x1E00, 0x1EFF), (0x2010, 0x2027), (0x2030, 0x205E), (0x20A0, 0x20CF),
-]
-
-
-def is_text(cp):
-    return any(a <= cp <= b for a, b in TEXT_BLOCKS) and unicodedata.category(chr(cp))[0] in "LNPS"
+from glyphs import ACCENT_OVERHANG, glyph_path, is_text
 
 
 def _scan(contours, y):
@@ -82,16 +73,42 @@ def fit_accents(glyph, glyf, advance, overhang=ACCENT_OVERHANG):
     ĩ has a tilde 71 units past an advance of 235 on each side, and it ran into the ascender of d in
     dĩ. The accent may reach `overhang` units into the neighbour's sidebearing, which an ascender stem
     leaves free, but no further: the whole glyph is moved and the advance grows to keep the rest inside.
+    Returns the new advance and how far the glyph was moved.
     """
+    moved = 0
     left = -overhang - glyph.xMin
     if left > 0:
+        moved = round(left)
         for comp in glyph.components:
-            comp.x += round(left)
+            comp.x += moved
         glyph.recalcBounds(glyf)
-        advance += round(left)
+        advance += moved
     if glyph.xMax > advance + overhang:
         advance = round(glyph.xMax - overhang)
-    return advance
+    return advance, moved
+
+
+HIGH_OVERHANG = 2 * ACCENT_OVERHANG
+
+
+def body_right(glyph, above):
+    """Rightmost ink of a simple glyph, leaving out the contours that lie wholly above height `above`.
+
+    The caron of ľ ď ť floats above the x-height beside the stem. It may reach into the next glyph's
+    sidebearing like any accent, but it must not make the gap after the stem larger than after l. Only a
+    tall neighbour reaches it, so it may overhang twice as far as an accent over the letter itself.
+    """
+    if above is None:
+        return glyph.xMax
+    right, start = None, 0
+    for end in glyph.endPtsOfContours:
+        points = glyph.coordinates[start:end + 1]
+        start = end + 1
+        if all(y > above for _, y in points):
+            continue
+        edge = max(x for x, _ in points)
+        right = edge if right is None else max(right, edge)
+    return glyph.xMax if right is None else right
 
 
 def letterspace(font, xheight=504, capheight=690, target=76, strength=0.55, floor=14, digit_sb=62, space=360,
@@ -104,7 +121,7 @@ def letterspace(font, xheight=504, capheight=690, target=76, strength=0.55, floo
     shifts = {}
     digits = {}
 
-    def place(name, left_ext, right_ext, left_sb, right_sb):
+    def place(name, left_ext, right_ext, left_sb, right_sb, high=None):
         g = glyf[name]
         dx = left_sb - left_ext
         g.coordinates.translate((dx, 0))
@@ -116,8 +133,12 @@ def letterspace(font, xheight=504, capheight=690, target=76, strength=0.55, floo
             g.recalcBounds(glyf)
             dx += lift
             adv += round(lift)
-        if g.xMax > adv - min_edge:
-            adv = round(g.xMax + min_edge)
+        body = body_right(g, high)
+        if body > adv - min_edge:
+            adv = round(body + min_edge)
+        reach = ACCENT_OVERHANG if body == g.xMax else HIGH_OVERHANG
+        if g.xMax > adv + reach:
+            adv = round(g.xMax - reach)
         hmtx[name] = (adv, round(g.xMin))
         shifts[name] = (dx, adv)
 
@@ -141,7 +162,7 @@ def letterspace(font, xheight=504, capheight=690, target=76, strength=0.55, floo
         zl, zr, dl, dr = edges
         t = target if cat in ("Ll", "Lu", "Lo", "Lm", "Lt") else target * 0.8
         s = strength if cat[0] == "L" else strength * 0.6
-        place(name, zl, zr, max(floor, t - s * dl), max(floor, t - s * dr))
+        place(name, zl, zr, max(floor, t - s * dl), max(floor, t - s * dr), xheight if cat == "Ll" else None)
 
     if digits:
         body = max(b - a for a, b in digits.values())
@@ -154,19 +175,33 @@ def letterspace(font, xheight=504, capheight=690, target=76, strength=0.55, floo
             hmtx[name] = (adv, round(g.xMin))
             shifts[name] = (dx, adv)
 
-    for name in font.getGlyphOrder():
+    respaced = len(shifts)
+
+    def follow_base(name):
+        """Moves the accents of a composite with its base and fits the advance. A base that is itself a
+        composite (į is i with an ogonek, and i is a dotless i with a dot) is settled first. Returns how far
+        the base's ink moved and the advance, or None when the base is not a glyph that was respaced."""
+        if name in shifts:
+            return shifts[name]
         g = glyf[name]
         if not g.isComposite():
-            continue
-        base = g.components[0].glyphName
-        if base in shifts:
-            dx, adv = shifts[base]
-            for comp in g.components[1:]:
-                comp.x += round(dx)
-            g.recalcBounds(glyf)
-            adv = fit_accents(g, glyf, adv)
-            hmtx[name] = (adv, g.xMin)
+            return None
+        base = follow_base(g.components[0].glyphName)
+        if base is None:
+            return None
+        dx, adv = base
+        for comp in g.components[1:]:
+            comp.x += round(dx)
+        g.recalcBounds(glyf)
+        adv, moved = fit_accents(g, glyf, adv)
+        hmtx[name] = (adv, g.xMin)
+        shifts[name] = (dx + moved, adv)
+        return shifts[name]
+
+    for name in font.getGlyphOrder():
+        if glyf[name].isComposite():
+            follow_base(name)
 
     if 0x20 in cmap and space:
         hmtx[cmap[0x20]] = (space, 0)
-    return len(shifts)
+    return respaced

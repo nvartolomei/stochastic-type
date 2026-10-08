@@ -137,18 +137,28 @@ def widen_caps(font, uniform=None):
         sync_bearing(font, name)
         new_centre = (min(new_x) + max(new_x)) / 2
         moved[name] = (centre, new_centre, factor)
+    changed = len(moved)
     glyph_set = font.getGlyphSet()
-    for name in font.getGlyphOrder():
-        glyph = glyf[name]
-        if not glyph.isComposite() or glyph.components[0].glyphName not in moved:
-            continue
-        centre, new_centre, factor = moved[glyph.components[0].glyphName]
-        for comp in glyph.components[1:]:
-            pen = BoundsPen(glyph_set)
-            glyph_set[comp.glyphName].draw(pen)
-            if pen.bounds is None:
+    pending = [name for name in font.getGlyphOrder() if glyf[name].isComposite()]
+    while pending:
+        later = []
+        for name in pending:
+            glyph = glyf[name]
+            first = glyph.components[0].glyphName
+            if first not in moved:
+                later.append(name)
                 continue
-            accent_centre = comp.x + (pen.bounds[0] + pen.bounds[2]) / 2
-            comp.x += round((new_centre - centre) + (factor - 1) * (accent_centre - centre))
-        glyph.recalcBounds(glyf)
-    return len(moved)
+            centre, new_centre, factor = moved[first]
+            for comp in glyph.components[1:]:
+                pen = BoundsPen(glyph_set)
+                glyph_set[comp.glyphName].draw(pen)
+                if pen.bounds is None:
+                    continue
+                accent_centre = comp.x + (pen.bounds[0] + pen.bounds[2]) / 2
+                comp.x += round((new_centre - centre) + (factor - 1) * (accent_centre - centre))
+            glyph.recalcBounds(glyf)
+            moved[name] = moved[first]
+        if len(later) == len(pending):
+            break
+        pending = later
+    return changed
