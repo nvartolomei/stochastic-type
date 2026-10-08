@@ -26,6 +26,7 @@ from fontTools.ttLib import TTFont
 
 sys.path.insert(0, str(Path(__file__).parent))
 from charset import target_codepoints  # noqa: E402
+from braces import shape_braces  # noqa: E402
 from caps import widen_caps  # noqa: E402
 from glyphs import decompose_side_by_side, fill_traps, rescale  # noqa: E402
 from spacing import letterspace, stem_width  # noqa: E402
@@ -40,6 +41,7 @@ VERSION = "0.3"
 WEIGHTS = {"Regular": 400, "Bold": 700}
 
 TARGET_XHEIGHT = 504
+MONO_XHEIGHT, MONO_CAPHEIGHT = 540, 700  # CommitMono's, set in the plan
 # Bold has smaller counters, so it needs smaller sidebearings and a smaller space to keep the same rhythm.
 SPACING = {
     "Regular": dict(target=80, strength=0.6, space=320),
@@ -49,6 +51,7 @@ ASCENDER, DESCENDER = 920, -280
 # Builds are reproducible: font timestamps come from SOURCE_DATE_EPOCH, or this fixed release date.
 RELEASE_EPOCH = 1790000000
 FILL_CHARS, FILL_RADIUS = "WwMm", 22
+BRACE_TIP, BRACE_ARM = 0.6, 0.5  # stems; see braces.py
 
 
 def measure(font, ch):
@@ -135,20 +138,22 @@ def build(src, out, weight, mono=False):
     """The proportional build is respaced; the monospace build keeps its fixed cell and gets contextual tucking."""
     font = TTFont(src)
     subset_to(font, target_codepoints())
-    rescale(font, TARGET_XHEIGHT / measure(font, "x")[3])
+    rescale(font, (MONO_XHEIGHT if mono else TARGET_XHEIGHT) / measure(font, "x")[3])
     if not mono:
         decompose_side_by_side(font)
-    match_hooks(font, MONO_BAR_ARMS if mono else BAR_ARMS, MONO_ARM_RATIO if mono else ARM_RATIO)
+    match_hooks(font, MONO_BAR_ARMS if mono else BAR_ARMS, MONO_ARM_RATIO if mono else ARM_RATIO,
+                scale=(MONO_XHEIGHT if mono else TARGET_XHEIGHT) / TARGET_XHEIGHT)
     if not mono:
         widen_caps(font)
     stem = stem_width(font)
+    shape_braces(font, stem, BRACE_TIP, BRACE_ARM, keep_centre=mono)
     lighten_marks(font, stem)
     respaced = 0 if mono else letterspace(font, **SPACING[weight])
     if mono:
         fill_traps(font, FILL_CHARS, FILL_RADIUS)
     finish(font)
     if mono:
-        tuck(font)
+        tuck(font, MONO_XHEIGHT, MONO_CAPHEIGHT)
     else:
         kern(font)
     rename(font, weight, MONO_FAMILY if mono else FAMILY)

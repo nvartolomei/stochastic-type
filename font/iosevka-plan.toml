@@ -31,6 +31,7 @@ capital-g = "flat-bottom-serifless-hooked"
 zero = "slashed"
 one = "base"
 e = "flat-crossbar"
+brace = "straight"
 
 [buildPlans.IosevkaStochastic.weights.Regular]
 shape = 378
@@ -93,6 +94,7 @@ capital-g = "flat-bottom-serifless-hooked"
 zero = "slashed"
 one = "base"
 e = "flat-crossbar"
+brace = "straight"
 capital-w = "straight-flat-top-serifless"
 w = "straight-flat-top-serifless"
 
@@ -113,12 +115,12 @@ menu = "upright"
 css = "normal"
 
 [buildPlans.IosevkaStochasticMono.widths.Normal]
-shape = 550
+shape = 600
 menu = 5
 css = "normal"
 
 [buildPlans.IosevkaStochasticMono.metricOverride]
-cap = 690
-ascender = 715
-xHeight = 504
+cap = 700
+ascender = 740
+xHeight = 540
 leading = 1200

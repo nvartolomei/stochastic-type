@@ -130,7 +130,7 @@ pre.code { font: 15px/1.5 "Stochastic Mono", ui-monospace, Menlo, monospace; fon
   </div>
 
   <h2>Monospace</h2>
-  <p class="note">Stochastic Mono has one fixed 550-unit cell. Every glyph, including the em dash, arrows and ellipsis, fits a single cell, so code and tables stay aligned. Box drawing and block characters are the base's own geometry, unrestyled, so lines meet exactly across cells and rows. Narrow letters are nudged toward their neighbours with kerning, inside their own cells; the toolbar switch turns that and the Sans kerning off so you can compare.</p>
+  <p class="note">Stochastic Mono has one fixed 600-unit cell. Every glyph, including the em dash, arrows and ellipsis, fits a single cell, so code and tables stay aligned. Box drawing and block characters are the base's own geometry, unrestyled, so lines meet exactly across cells and rows. Narrow letters are nudged toward their neighbours with kerning, inside their own cells; the toolbar switch turns that and the Sans kerning off so you can compare.</p>
   <div class="grid g2">
     <div>
       <p class="label">Code</p>
@@ -195,7 +195,7 @@ illusion lilliput hijack Adjust fill</pre>
   <h2>Status</h2>
   <div class="card">
     <p><b>Covered:</b> Latin including Vietnamese, common punctuation and currency, arrows, math operators, geometric shapes and many symbols, plus box drawing, block elements, Braille and the Powerline and legacy-computing graphics terminals use. Regular and Bold.</p>
-    <p><b>Monospace:</b> Stochastic Mono, Regular and Bold, shares the letterforms and weights but not the spacing. It keeps a fixed 550-unit cell, and narrow letters (<i>r i f l t</i>) are shifted toward their neighbours by <code>kern</code> positioning so words do not fall apart. Browsers apply it; editors and terminals that ignore kerning show the plain cell.</p>
+    <p><b>Monospace:</b> Stochastic Mono, Regular and Bold, shares the letterforms and weights but not the spacing. It keeps a fixed 600-unit cell, and narrow letters (<i>r i f l t</i>) are shifted toward their neighbours by <code>kern</code> positioning so words do not fall apart. Browsers apply it; editors and terminals that ignore kerning show the plain cell.</p>
     <p><b>Italic:</b> there is no designed italic. Wherever the page shows italic, the browser slants the upright letters (a synthesized oblique), so the letterforms are not redrawn and the slant angle varies by browser. A true oblique can be built from Iosevka's slope settings if it turns out to matter.</p>
     <p><b>Not covered:</b> every non-Latin script (Greek, Cyrillic, CJK, Arabic, Hebrew, Indic and others) and emoji. They fall back to the system font. Greek letters used as math symbols (Δ π μ) fall back too.</p>
     <p><b>Spacing:</b> side bearings are set from each letter's outline, so letters are not centred in equal cells. Use the letter-spacing slider to see the text looser.</p>

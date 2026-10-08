@@ -34,6 +34,7 @@ from glyphs import glyph_path
 from spacing import optical_edges
 
 SENTENCE_MARKS = ".,:;!?"
+CELL = 550  # the cell the distances below were tuned for; tuck() scales them to the font's own
 BUCKET = 24
 TARGET_OFFSET = -30
 SHARE = 0.6
@@ -99,7 +100,8 @@ def not_space_glyphs(font):
     return [name for name in font.getGlyphOrder() if name not in spaces and name != ".notdef"]
 
 
-def plan(bearings, marks=(), target=None, share=SHARE, limit=LIMIT, mark_share=MARK_SHARE, mark_limit=MARK_LIMIT):
+def plan(bearings, marks=(), target=None, share=SHARE, limit=LIMIT, mark_share=MARK_SHARE, mark_limit=MARK_LIMIT,
+         offset=TARGET_OFFSET):
     """Class pairs and shifts.
 
     Returns (target, right classes, left classes, rules). Classes are keyed (is mark, bucket). A rule
@@ -108,7 +110,7 @@ def plan(bearings, marks=(), target=None, share=SHARE, limit=LIMIT, mark_share=M
     """
     if target is None:
         gaps = sorted(r + l for _, r in bearings.values() for l, _ in bearings.values())
-        target = gaps[len(gaps) // 2] + TARGET_OFFSET
+        target = gaps[len(gaps) // 2] + offset
     right = {}
     left = {}
     for name, (lb, rb) in bearings.items():
@@ -169,11 +171,13 @@ def feature_code(right, left, rules, fixed, cascade, not_space):
     return "\n".join(lines)
 
 
-def tuck(font, **kwargs):
+def tuck(font, xheight=504, capheight=690, **kwargs):
     """Adds the tuck rules as the font's GPOS kern feature. Returns (target gap, rule count)."""
     cmap = font.getBestCmap()
     marks = {cmap[ord(ch)] for ch in SENTENCE_MARKS if ord(ch) in cmap}
-    bearings = optical_bearings(font)
+    bearings = optical_bearings(font, xheight=xheight, capheight=capheight)
+    scale = font["hmtx"][cmap[ord("x")]][0] / CELL
+    kwargs = {"limit": LIMIT * scale, "mark_limit": MARK_LIMIT * scale, "offset": TARGET_OFFSET * scale, **kwargs}
     target, right, left, rules = plan(bearings, marks, **kwargs)
     cascade = sorted({name for cp, name in cmap.items()
                       if any(lo <= cp <= hi for lo, hi in CASCADE_RANGES) and name in bearings})

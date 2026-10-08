@@ -34,6 +34,9 @@ BAR_BAND = (380, 515)
 FOOT_SOLID, FOOT_FADE = 90, 220
 ARM_RATIO = 0.72
 MONO_ARM_RATIO = None
+F_HOOK_FROM = 520  # f's top hook starts above its crossbar
+N_SHOULDER = 400  # n's arch lies above this height
+# The heights above are for an x-height of 504; `scale` is the font's x-height over that.
 
 
 def _contours(font, name):
@@ -90,7 +93,7 @@ def _vscan(contours, x):
     return sorted(ys)
 
 
-def shorten_r(font, ratio):
+def shorten_r(font, ratio, scale=1.0):
     """Shortens the arm of r to `ratio` times the reach of the shoulder of n.
 
     A slice is taken out of the middle of the arm's flat run and the end is moved back against the
@@ -98,7 +101,7 @@ def shorten_r(font, ratio):
     """
     cmap = font.getBestCmap()
     n = _contours(font, cmap[ord("n")])
-    n_reach = max(p[0] for c in n for p in c if p[1] > 400) - _scan(n, STEM_Y)[1]
+    n_reach = max(p[0] for c in n for p in c if p[1] > N_SHOULDER * scale) - _scan(n, STEM_Y)[1]
     name = cmap[ord("r")]
     r = _contours(font, name)
     stem_right = _scan(r, STEM_Y)[1]
@@ -119,10 +122,10 @@ def shorten_r(font, ratio):
     sync_bearing(font, name)
 
 
-def match_hooks(font, arms=BAR_ARMS, r_arm=ARM_RATIO, margin=2):
+def match_hooks(font, arms=BAR_ARMS, r_arm=ARM_RATIO, margin=2, scale=1.0):
     """Cuts the foot of t, the top hook of f and the hook of j back to l's reach, and the crossbar arms of
     t and f to `arms` (left, right) times that reach, and the arm of r to `r_arm` times the reach of the
-    shoulder of n (not at all when None). Returns the reach used."""
+    shoulder of n (not at all when None). `scale` is the x-height over 504, for the fixed heights. Returns the reach used."""
     reach = tail_reach(font)
     cmap = font.getBestCmap()
     big = 2000
@@ -134,13 +137,13 @@ def match_hooks(font, arms=BAR_ARMS, r_arm=ARM_RATIO, margin=2):
 
     f = cmap[ord("f")]
     stem_right = _scan(_contours(font, f), STEM_Y)[1]
-    if max(p[0] for c in _contours(font, f) for p in c if p[1] > 520) - stem_right > reach + margin:
-        _cut(font, f, (stem_right + reach, 520, big, big))
+    if max(p[0] for c in _contours(font, f) for p in c if p[1] > F_HOOK_FROM * scale) - stem_right > reach + margin:
+        _cut(font, f, (stem_right + reach, F_HOOK_FROM * scale, big, big))
 
     for ch in "tf":
         name = cmap[ord(ch)]
         stem_left, stem_right = _scan(_contours(font, name), STEM_Y)[:2]
-        bottom, top = BAR_BAND
+        bottom, top = (y * scale for y in BAR_BAND)
         _cut(font, name, (-big, bottom, stem_left - reach * arms[0], top))
         _cut(font, name, (stem_right + reach * arms[1], bottom, big, top))
 
@@ -156,5 +159,5 @@ def match_hooks(font, arms=BAR_ARMS, r_arm=ARM_RATIO, margin=2):
     if stem_left - min(p[0] for c in _contours(font, j) for p in c if p[1] < 0) > reach + margin:
         _cut(font, j, (-big, -big, stem_left - reach, 0))
     if r_arm:
-        shorten_r(font, r_arm)
+        shorten_r(font, r_arm, scale)
     return reach
