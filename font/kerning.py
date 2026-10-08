@@ -183,6 +183,7 @@ def mark_pairs(font, old_value, clear=None, names=None):
 
 
 EXTRA_BLOCKS = [(0xC0, 0xFF), (0x100, 0x17F), (0x180, 0x24F), (0x1E00, 0x1EFF)]
+CORE_BLOCKS = [(0xC0, 0xFF), (0x100, 0x17F)]
 FLOOR_TOP = 950
 ASCII_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 LOOSE_TRIGGER = 0.75
@@ -392,6 +393,9 @@ def kern(font, bar_gap=None, left_bias=None, **kwargs):
     opening = [cmap[ord(c)] for c in EXTRA_MARKS if ord(c) in cmap]
     others = other_letters(font)
     loose = [name for name in others if name not in plain]
+    core = {name for cp, name in cmap.items() if any(lo <= cp <= hi for lo, hi in CORE_BLOCKS)}
+    core_letters = [name for name in others if name in core]
+    core_loose = [name for name in loose if name in core]
     punctuation = [cmap[ord(c)] for c in PUNCTUATION if ord(c) in cmap and cmap[ord(c)] not in marks]
     edges = Edges(font, ascii_names + marks + others + punctuation)
     floor = FLOOR_RATIO * edges.gap(cmap[ord("n")], cmap[ord("n")])
@@ -435,6 +439,7 @@ def kern(font, bar_gap=None, left_bias=None, **kwargs):
     for first, second, trigger in (
         (others, ascii_names + marks, 1.0), (marks, others, 1.0), (ascii_names, others, 1.0),
         (loose, punctuation, LOOSE_TRIGGER),
+        (core_loose, core_letters, LOOSE_TRIGGER), (core_letters, core_loose, LOOSE_TRIGGER),
         (loose, others, TOUCH_TRIGGER), (others, loose, TOUCH_TRIGGER),
         (others, others, TOUCH_TRIGGER),
     ):
