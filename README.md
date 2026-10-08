@@ -2,6 +2,14 @@
 
 Stochastic Type is a font family for LLM-published content, built by a stochastic parrot. Made for long prose: letters are spaced from their outlines, weights are moderate, and the terminals share one flat gesture (a rounded corner into a flat run).
 
+<img src="docs/sans.png" alt="Stochastic Sans: a heading and a paragraph of prose, Regular and Bold, and kerned pairs" width="880">
+
+<img src="docs/mono.png" alt="Stochastic Mono: code, a table and a tree drawn with box-drawing characters" width="880">
+
+<img src="docs/chars.png" alt="Characters: Latin with Vietnamese, math symbols, arrows, punctuation, currency" width="880">
+
+<img src="docs/sizes.png" alt="Sizes from 56 down to 12 pixels" width="880">
+
 It is a derivative of [Iosevka](https://github.com/be5invis/Iosevka) (SIL OFL 1.1, `OFL.txt`) and stays OFL. Two typefaces, Stochastic Sans (proportional) and Stochastic Mono (fixed cell, every glyph one cell wide), each static Regular and Bold. Latin (including Vietnamese), punctuation, currency, arrows, math, shapes and common symbols, plus box drawing, block elements, Braille, Powerline and legacy-computing graphics. No other scripts.
 
 ## Build
@@ -13,6 +21,8 @@ make
 Managed with [uv](https://docs.astral.sh/uv/): every step runs through `uv run`, which creates the environment from `pyproject.toml` and `uv.lock` on first use. The Iosevka base is built from source, so `git`, `node` and `npm` are also needed. The first `make` clones Iosevka into `build/` and takes a few minutes; after that the graph is incremental: changing a script in `font/` rebuilds the fonts, and the Iosevka base is rebuilt only when `font/iosevka-plan.toml` or `font/iosevka.py` changes. `make -j2` builds both weights in parallel. `make clean` removes `dist/`; `make distclean` also removes `build/` and `.venv`.
 
 Outputs in `dist/`: `StochasticSans-{Regular,Bold}.ttf`, `StochasticMono-{Regular,Bold}.ttf`, `OFL.txt`, and `specimen.html`, a static page that loads the fonts from the same directory (open it straight from disk). Static fonts only, TTF only.
+
+The screenshots at the top come from `specimen/shots.html`; `make shots` renders them at 2x into `docs/` (needs Chrome or Chromium, or `CHROME` set, and the built fonts).
 
 ## Pipeline
 

@@ -6,7 +6,7 @@ BASE_STAMP := build/base/.built
 FONTS := $(foreach w,$(WEIGHTS),dist/StochasticSans-$(w).ttf dist/StochasticMono-$(w).ttf)
 SCRIPTS := $(wildcard font/*.py)
 
-.PHONY: all clean distclean
+.PHONY: all shots clean distclean
 
 all: $(FONTS) dist/specimen.html dist/OFL.txt
 
@@ -30,6 +30,10 @@ dist/specimen.html: specimen/index.html
 dist/OFL.txt: OFL.txt
 	@mkdir -p dist
 	cp $< $@
+
+# README screenshots, rendered at 2x with headless Chrome.
+shots: $(FONTS)
+	$(UV) run specimen/shots.py
 
 clean:
 	rm -rf dist

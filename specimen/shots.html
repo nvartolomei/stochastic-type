@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stochastic Type — README screenshots</title>
+<style>
+@font-face { font-family: "Stochastic Sans"; font-weight: 400; src: url("../dist/StochasticSans-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Stochastic Sans"; font-weight: 700; src: url("../dist/StochasticSans-Bold.ttf") format("truetype"); }
+@font-face { font-family: "Stochastic Mono"; font-weight: 400; src: url("../dist/StochasticMono-Regular.ttf") format("truetype"); }
+@font-face { font-family: "Stochastic Mono"; font-weight: 700; src: url("../dist/StochasticMono-Bold.ttf") format("truetype"); }
+* { box-sizing: border-box; }
+html { background: #fbfaf7; }
+body { margin: 0; width: 880px; color: #1b1b1a; font: 20px/1.6 "Stochastic Sans", sans-serif; }
+.shot { display: none; padding: 28px 36px 32px; }
+.shot:target { display: block; }
+.label { font: 12px/1.3 "Stochastic Mono", monospace; letter-spacing: .06em; text-transform: uppercase; color: #6b6a66; margin: 0 0 18px; }
+h1 { font-size: 44px; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 16px; }
+p { margin: 0 0 1em; }
+.big { font-size: 32px; line-height: 1.2; margin: 0 0 8px; }
+.rule { border-top: 1px solid #dedbd3; margin: 22px 0; }
+pre { font: 16px/1.5 "Stochastic Mono", monospace; margin: 0; }
+.cols pre { line-height: normal; }
+.cols { display: grid; grid-template-columns: auto auto; gap: 0 40px; justify-content: start; }
+.glyphs div { font-size: 30px; line-height: 1.4; overflow-wrap: anywhere; }
+.sizes p { margin: 0 0 8px; }
+</style>
+</head>
+<body>
+
+<section class="shot" id="sans">
+  <p class="label">Stochastic Sans · Regular and Bold</p>
+  <h1>Why Churn Rose in Q3</h1>
+  <p>Churn rose from 2.1% to 3.4% between July and September, but the data tells a less tidy story than the headline suggests. Most of the increase comes from a single cohort that signed up during the spring promotion — and left once the discount ended.</p>
+  <div class="rule"></div>
+  <p class="big" style="font-weight:400">Probably fine, probably not.</p>
+  <p class="big" style="font-weight:700">Probably fine, probably not.</p>
+  <div class="rule"></div>
+  <div class="big" style="font-size:38px;line-height:1.3">Adjust hijack jug fill illusion<br>Type Wave AVATAR To Ty fluency</div>
+</section>
+
+<section class="shot" id="mono">
+  <p class="label">Stochastic Mono · Regular and Bold · one 550-unit cell</p>
+<pre>def verify(claim: str, sources: list[str]) -> bool:
+    """Return True only if every source supports the claim."""
+    if not sources:  # no evidence, no truth …
+        return False
+    return all(s.strip() != "" for s in sources)  # 0 → 1 ✓
+
+# 0O 1lI |!  {}[]()  &@%  =>  ->  !==  ::  ..  ...
+total = 3.4 - 2.1  # +1.3 pts, probably</pre>
+  <div class="rule"></div>
+  <div class="cols">
+<pre>┌───────────┬────────┬───────┐
+│ Month     │ Churn  │ Diff  │
+├───────────┼────────┼───────┤
+│ July      │ 2.1%   │ —     │
+│ August    │ 2.8%   │ +0.7  │
+│ September │ 3.4%   │ +0.6  │
+└───────────┴────────┴───────┘</pre>
+<pre>├── src/
+│   ├── build.py
+│   └── spacing.py
+└── dist/
+
+<b>Stochastic Mono Bold</b></pre>
+  </div>
+</section>
+
+<section class="shot glyphs" id="chars">
+  <p class="label">Characters · Latin with Vietnamese, punctuation, symbols</p>
+  <div>Tiếng Việt: ệ ắ ờ ữ ý — Ångström, Łódź, İstanbul, Ærø</div>
+  <div>∑ ∫ ∞ ≈ ≠ ≤ ≥ ± × ÷ √ ∂ ∇ ∈ ∀ ∃ → ⇒ ↔ ⟶ ★ ✓ ◆</div>
+  <div class="rule"></div>
+  <div>ABCDEFGHIJKLMNOPQRSTUVWXYZ</div>
+  <div>abcdefghijklmnopqrstuvwxyz</div>
+  <div>0123456789 &amp;@%$#*+=?!.,;:'"()[]{}/\-_~</div>
+  <div>→ ← ↑ ↓ ✓ ✗ — – … “quotes” ‘single’</div>
+  <div>© ® ™ € £ ¥ éèêë ñ ü ß ç</div>
+  <div style="font-weight:700">ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</div>
+</section>
+
+<section class="shot sizes" id="sizes">
+  <p class="label">Sizes · 56 to 12 px</p>
+  <p style="font-size:56px;line-height:1.1;font-weight:700">The quick brown fox jumps</p>
+  <p style="font-size:32px;line-height:1.2">The quick brown fox jumps over the lazy dog</p>
+  <p style="font-size:20px">The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.</p>
+  <p style="font-size:16px">The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. 0123456789</p>
+  <p style="font-size:14px">The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. 0123456789</p>
+  <p style="font-size:12px;margin:0">The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. 0123456789</p>
+</section>
+
+<script>
+document.fonts.ready.then(function () {
+  var shot = document.querySelector('.shot:target');
+  if (shot) document.documentElement.dataset.height = Math.ceil(shot.getBoundingClientRect().height);
+});
+</script>
+</body>
+</html>
