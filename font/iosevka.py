@@ -14,6 +14,8 @@ SRC = ROOT / "build" / "iosevka"
 OUT = ROOT / "build" / "base"
 PLAN = Path(__file__).parent / "iosevka-plan.toml"
 REPO = "https://github.com/be5invis/Iosevka"
+# Pinned release; the build is byte-reproducible only for a fixed Iosevka. Bump deliberately.
+REF = "v34.9.0"
 TARGETS = ["IosevkaStochastic", "IosevkaStochasticMono"]
 
 
@@ -24,7 +26,12 @@ def run(cmd, cwd):
 def main():
     if not (SRC / "package.json").exists():
         SRC.mkdir(parents=True, exist_ok=True)
-        run(["git", "clone", "--depth", "1", REPO, "."], SRC)
+        run(["git", "clone", "--depth", "1", "--branch", REF, REPO, "."], SRC)
+    head = subprocess.run(["git", "describe", "--tags", "--exact-match"], cwd=SRC, capture_output=True, text=True).stdout.strip()
+    if head != REF:
+        run(["git", "fetch", "--depth", "1", "origin", "tag", REF], SRC)
+        run(["git", "checkout", "--force", REF], SRC)
+        shutil.rmtree(SRC / "node_modules", ignore_errors=True)
     if not (SRC / "node_modules").exists():
         run(["npm", "install", "--no-audit", "--no-fund"], SRC)
     shutil.copy(PLAN, SRC / "private-build-plans.toml")

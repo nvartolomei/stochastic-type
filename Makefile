@@ -4,11 +4,12 @@ WEIGHTS := Regular Bold
 # Iosevka base: built from source (needs git, node, npm); rebuilt only when its plan changes.
 BASE_STAMP := build/base/.built
 FONTS := $(foreach w,$(WEIGHTS),dist/StochasticSans-$(w).ttf dist/StochasticMono-$(w).ttf)
+WOFF2 := $(FONTS:.ttf=.woff2)
 SCRIPTS := $(wildcard font/*.py)
 
 .PHONY: all shots clean distclean
 
-all: $(FONTS) dist/specimen.html dist/OFL.txt
+all: $(FONTS) $(WOFF2) dist/specimen.html dist/OFL.txt
 
 $(BASE_STAMP): font/iosevka-plan.toml font/iosevka.py
 	$(UV) run font/iosevka.py
@@ -21,6 +22,9 @@ dist/StochasticSans-%.ttf: $(BASE_STAMP) $(SCRIPTS)
 dist/StochasticMono-%.ttf: $(BASE_STAMP) $(SCRIPTS)
 	@mkdir -p dist
 	$(UV) run font/build.py build/base/IosevkaStochasticMono-$*.ttf $@ --weight $* --mono
+
+dist/%.woff2: dist/%.ttf font/woff2.py
+	$(UV) run font/woff2.py $< $@
 
 # Static page; it loads the fonts from the same directory.
 dist/specimen.html: specimen/index.html

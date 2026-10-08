@@ -5,6 +5,7 @@ description = "Stochastic Type: an Iosevka-based font family (Sans and Mono) for
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "brotli>=1.2.0",
     "fonttools>=4.50",
     "skia-pathops>=0.8",
 ]
