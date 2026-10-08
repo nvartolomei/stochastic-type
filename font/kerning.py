@@ -9,14 +9,18 @@ pairs, a little looser for tight ones.
 Classes are 4-unit buckets of optical bearing, fine enough that the estimate carries no visible
 quantisation noise and coarse enough that the class pair table stays small.
 
-Explicit glyph pairs sit in front of the classes, because a sum of two per-glyph averages cannot see
-how two shapes face each other, and cannot see a collision at all. The crossbars of f and t get a
-fixed gap. A letter followed by a period, comma, colon, semicolon, apostrophe, closing quote or hyphen
-is tucked by how far its edge recedes at the height of the mark, beyond the recession the per-glyph
-model has already credited: `V.` `y.` `L'` `P.` leave a hole under an arm or a bar that no class can
-fill, while `n.` and `o.` stay as they were. Last, no pair of letters, or of a letter and a mark, may
-end up with its nearest ink closer than a floor: the class model has no collision limit, and it pulled
-the facing bars of TT, FT, ET and TY into each other.
+Explicit pairs are added to the classes, because a sum of two per-glyph averages cannot see how two
+shapes face each other, and cannot see a collision at all. The crossbars of f and t get a fixed gap. A
+letter followed by a period, comma, colon, semicolon, apostrophe, quote or hyphen is tucked by how far
+its edge recedes at the height of the mark, beyond the recession the per-glyph model has already
+credited: `V.` `y.` `L'` `P.` leave a hole under an arm or a bar that no class can fill, while `n.` and
+`o.` stay as they were. Last, no pair of letters, or of a letter and a mark, may end up with its nearest
+ink closer than a floor: the class model has no collision limit, and it pulled the facing bars of TT,
+FT, ET and TY into each other.
+
+The explicit pairs are worked out for the ASCII letters and then given to their accented forms by
+rules over classes (a letter and the accented forms with the same body), so that `ŽÁ` is kerned like
+`ZA` and the table stays small. Glyph pairs remain only where an accented form differs from its base.
 
 Digits are never kerned: they are tabular and every digit pair must keep its advance.
 """
@@ -37,7 +41,7 @@ BUCKET = 4
 BAR_Y = 470
 BAR_GAP_RATIO = 0.85
 LEFT_BIAS = {"t": 25, "f": 25}
-MARK_AFTER = ".,:;'\"\u2019\u201d-"
+MARK_AFTER = ".,:;'\"\u2019\u201d\u201c\u2018-"
 MARK_WINDOW = 60
 MARK_DEADBAND = 20
 MARK_SHARE = 1.0
@@ -99,7 +103,7 @@ def _zone(cat, contours):
     return max(ys) - min(ys)
 
 
-def mark_pairs(font, old_value, clear=None):
+def mark_pairs(font, old_value, clear=None, names=None):
     """Explicit pairs of a letter and the marks that follow it, tucked by local recession.
 
     `old_value(first, second)` is the class kerning the pair would otherwise get; it is added so that
@@ -109,6 +113,8 @@ def mark_pairs(font, old_value, clear=None):
     where nothing can tuck: the class kerning had pulled their nearest ink to half the usual gap. So
     for those two marks the nearest ink of every letter keeps at least `clear` times the median gap
     of the unkerned lowercase pairs, and a letter that is closer than that by nature (`t;`) is loosened.
+
+    Only the glyphs in `names` get pairs, all letters when it is None.
     """
     clear = MARK_CLEAR if clear is None else clear
     cmap, gs, hmtx = font.getBestCmap(), font.getGlyphSet(), font["hmtx"]
@@ -120,9 +126,13 @@ def mark_pairs(font, old_value, clear=None):
         mark_rows[ch] = [y for y in range(int(min(ys)) // ROW * ROW, int(max(ys)) + 1, ROW) if _scan(contours, y + 0.5)]
         mark_left[ch] = {y: _scan(contours, y + 0.5)[0] for y in mark_rows[ch]}
     letters = {}
+    wanted = None if names is None else set(names)
+    reference = {cmap[ord(c)] for c in "abcdefghijklmnopqrstuvwxyz"}
     for cp, name in sorted(cmap.items()):
         cat = unicodedata.category(chr(cp))
         if not is_text(cp) or name in letters or cat[0] != "L":
+            continue
+        if wanted is not None and name not in wanted and name not in reference:
             continue
         contours = flatten_contours(glyph_path(gs, name), 10)
         edges = optical_edges(contours, cat)
@@ -143,6 +153,8 @@ def mark_pairs(font, old_value, clear=None):
             floors[ch] = clear * plain[len(plain) // 2]
     pairs = {}
     for name, (cat, contours, edges, right, advance) in letters.items():
+        if wanted is not None and name not in wanted:
+            continue
         reach, depth = edges[1], edges[3]
         clip = 0.3 * _zone(cat, contours)
         for ch, mark in marks.items():
@@ -174,8 +186,13 @@ EXTRA_BLOCKS = [(0xC0, 0xFF), (0x100, 0x17F), (0x180, 0x24F), (0x1E00, 0x1EFF)]
 FLOOR_TOP = 950
 ASCII_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 LOOSE_TRIGGER = 0.75
-TOUCH_TRIGGER = 0.3
+TOUCH_TRIGGER = 0.5
 PUNCTUATION = "\"#$%&'()*+-/<=>@[\\]^_`{|}~"
+EXTRA_MARKS = "\u201c\u2018\u201a\u201e\u00ab\u00bb\u2039\u203a\u2013\u2014\u2026"
+FLOOR_MARKS = MARK_AFTER + "!?" + EXTRA_MARKS
+BODY_FROM = 20
+BODY_TOLERANCE = 6
+TOLERANCE = 3
 
 
 def other_letters(font):
@@ -220,95 +237,117 @@ def _bounds(glyph_set, name):
     return pen.bounds
 
 
-def floor_pairs(font, value_of, ratio):
-    """Pairs whose nearest ink would end up closer than `ratio` times the gap of `nn`, with the value that
-    restores it.
+class Edges:
+    """The left and right ink edge of glyphs at every height, and from them the nearest-ink gap of a pair.
 
     The nearest ink is the smallest horizontal gap, over the heights where both glyphs have ink,
     between the right edge of the first glyph and the left edge of the second. It is what the eye
-    reads as a near collision, and it is what a sum of per-glyph averages cannot see. A pair that is
-    under the floor even unkerned is loosened, so `TT` (28 units unkerned) is pushed out as well.
-    The heights run to 950 so that accents count. Pairs are ASCII letters with ASCII letters and marks,
-    and the letters of Latin-1, Extended-A, Extended-B and Latin Extended Additional with the ASCII letters
-    and marks. Letters that take no class kerning (a wide accent, a stroke, a horn) are also checked
-    against all the other letters, in both orders, and against the ASCII punctuation they may be
-    followed by: `đĩ` overlapped, and the caron of `ľ` reaches over the next glyph. These pairs are only
-    moved when they come closer than `LOOSE_TRIGGER` times the floor (a collision), but then to the
-    floor itself; a pair a few units under the floor is left alone, which keeps the table small. Two
-    letters that do take class kerning follow their base letters, but not their facing bars: `ŢŤ`
-    overlapped like `TT`. Between any two letters outside ASCII a pair is moved only when it comes
-    closer than `TOUCH_TRIGGER` times the floor, that is when the ink touches.
+    reads as a near collision, and it is what a sum of per-glyph averages cannot see. The heights run
+    to 950 so that accents count.
     """
-    cmap, hmtx, gs = font.getBestCmap(), font["hmtx"], font.getGlyphSet()
-    ascii_names = [cmap[ord(c)] for c in ASCII_LETTERS]
-    marks = [cmap[ord(c)] for c in MARK_AFTER + "!?" if ord(c) in cmap]
-    others = other_letters(font)
-    plain = plain_letters(font)
-    loose = [name for name in others if name not in plain]
-    punctuation = [cmap[ord(c)] for c in PUNCTUATION if ord(c) in cmap and cmap[ord(c)] not in marks]
-    edges = {}
-    for name in set(ascii_names + marks + others + punctuation):
-        contours = flatten_contours(glyph_path(gs, name), 10)
-        left, right = {}, {}
-        for y in range(-300, FLOOR_TOP, FLOOR_ROW):
-            xs = _scan(contours, y + 0.5)
-            if xs:
-                left[y], right[y] = xs[0], xs[-1]
-        edges[name] = (left, right)
 
-    def nearest(a, b):
-        right_a, left_b = edges[a][1], edges[b][0]
-        gaps = [hmtx[a][0] - right_a[y] + left_b[y] for y in right_a if y in left_b]
+    def __init__(self, font, names):
+        self.advance = {name: font["hmtx"][name][0] for name in names}
+        gs = font.getGlyphSet()
+        self.rows = {}
+        for name in sorted(set(names)):
+            contours = flatten_contours(glyph_path(gs, name), 10)
+            left, right = {}, {}
+            for y in range(-300, FLOOR_TOP, FLOOR_ROW):
+                xs = _scan(contours, y + 0.5)
+                if xs:
+                    left[y], right[y] = xs[0], xs[-1]
+            self.rows[name] = (left, right)
+        self.inner = {name: self.advance[name] - max(right.values()) if right else None
+                      for name, (_, right) in self.rows.items()}
+        self.outer = {name: min(left.values()) if left else None for name, (left, _) in self.rows.items()}
+
+    def gap(self, a, b):
+        right_a, left_b = self.rows[a][1], self.rows[b][0]
+        gaps = [self.advance[a] - right_a[y] + left_b[y] for y in right_a if y in left_b]
         return min(gaps) if gaps else None
 
-    def farthest_in(a):
-        right = edges[a][1]
-        return hmtx[a][0] - max(right.values()) if right else None
+    def same_body(self, a, b, top):
+        """Whether two glyphs have the same outline between BODY_FROM and `top`, where accents are not."""
+        (la, ra), (lb, rb) = self.rows[a], self.rows[b]
+        for y in range(BODY_FROM, top + 1, FLOOR_ROW):
+            if (y in la) != (y in lb):
+                return False
+            if y in la and (abs(la[y] - lb[y]) > BODY_TOLERANCE or abs(ra[y] - rb[y]) > BODY_TOLERANCE):
+                return False
+        return True
 
-    def farthest_out(b):
-        left = edges[b][0]
-        return min(left.values()) if left else None
-
-    slack = {name: (farthest_in(name), farthest_out(name)) for name in edges}
-
-    floor = ratio * nearest(cmap[ord("n")], cmap[ord("n")])
-    pairs = {}
-
-    def check(a, b, trigger=1.0):
-        inner, outer = slack[a][0], slack[b][1]
-        if inner is None or outer is None or inner + outer + value_of(a, b) >= trigger * floor:
-            return
-        gap = nearest(a, b)
-        if gap is not None and gap + value_of(a, b) < trigger * floor:
-            pairs[(a, b)] = int(round(floor - gap))
-
-    for a in ascii_names:
-        for b in ascii_names + marks + others:
-            check(a, b)
-    for a in others:
-        for b in ascii_names + marks:
-            check(a, b)
-    for a in loose:
-        for b in others + punctuation:
-            check(a, b, LOOSE_TRIGGER)
-    for a in others:
-        for b in loose:
-            check(a, b, LOOSE_TRIGGER)
-    for a in others:
-        for b in others:
-            check(a, b, TOUCH_TRIGGER)
-    return pairs
+    def floor_pairs(self, firsts, seconds, value_of, floor, trigger=1.0):
+        """{(first, second): kern} for the pairs that, with `value_of(first, second)` applied, would end up
+        closer than `trigger` times `floor`; the kern restores the gap to `floor`. A pair that is under the
+        floor even unkerned is loosened, so `TT` (28 units unkerned) is pushed out as well."""
+        pairs = {}
+        limit = trigger * floor
+        for a in firsts:
+            inner = self.inner[a]
+            if inner is None:
+                continue
+            for b in seconds:
+                outer = self.outer[b]
+                if outer is None:
+                    continue
+                value = value_of(a, b)
+                if inner + outer + value >= limit:
+                    continue
+                gap = self.gap(a, b)
+                if gap is not None and gap + value < limit:
+                    pairs[(a, b)] = int(round(floor - gap))
+        return pairs
 
 
-def feature_code(right, left, rules, explicit=None):
+def base_classes(font, edges):
+    """{glyph of an ASCII letter: [that glyph and its accented forms with the same body]}.
+
+    An accented letter whose outline up to the x-height or cap-height equals its base letter's faces its
+    neighbours as that letter does, so it takes the letter's kerning, floor and mark pairs from one class
+    rule instead of a pair of its own. A letter whose body differs (a stroke, a cedilla that reaches
+    up, a wide accent) keeps pairs of its own.
+    """
+    cmap, plain = font.getBestCmap(), plain_letters(font)
+    classes = {cmap[ord(c)]: [cmap[ord(c)]] for c in ASCII_LETTERS}
+    seen = set(classes)
+    for cp, name in sorted(cmap.items()):
+        ch = chr(cp)
+        if cp < 0x80 or name in seen or name not in plain or name not in edges.rows:
+            continue
+        base = SIMILAR.get(ch) or unicodedata.normalize("NFD", ch)[0]
+        if base not in ASCII_LETTERS:
+            continue
+        base_name = cmap[ord(base)]
+        top = 504 if base.islower() else 690
+        if edges.same_body(name, base_name, top):
+            classes[base_name].append(name)
+            seen.add(name)
+    return classes
+
+
+def feature_code(right, left, rules, classes=None, class_rules=None, glyph_pairs=None):
     lines = ["languagesystem DFLT dflt;", "languagesystem latn dflt;"]
     for k in sorted({kr for kr, _, _ in rules}):
         lines.append(f"@R{k} = [{' '.join(sorted(right[k]))}];")
     for k in sorted({kl for _, kl, _ in rules}):
         lines.append(f"@L{k} = [{' '.join(sorted(left[k]))}];")
+    names = {}
+    for (a, b) in sorted(class_rules or {}):
+        for g in (a, b):
+            if g in (classes or {}) and g not in names:
+                names[g] = f"@K{len(names)}"
+                lines.append(f"{names[g]} = [{' '.join(sorted(classes[g]))}];")
     lines.append("feature kern {")
-    lines += [f"    pos {a} {b} {v};" for (a, b), v in sorted((explicit or {}).items())]
-    lines += [f"    pos @R{kr} @L{kl} {v};" for kr, kl, v in rules]
+    lines.append("    lookup KERN_CLASS {")
+    lines += [f"        pos {names.get(a, a)} {names.get(b, b)} {v};" for (a, b), v in sorted((class_rules or {}).items())]
+    lines.append("    } KERN_CLASS;")
+    lines.append("    lookup KERN_GLYPH {")
+    lines += [f"        pos {a} {b} {v};" for (a, b), v in sorted((glyph_pairs or {}).items())]
+    lines.append("    } KERN_GLYPH;")
+    lines.append("    lookup KERN_BUCKET {")
+    lines += [f"        pos @R{kr} @L{kl} {v};" for kr, kl, v in rules]
+    lines.append("    } KERN_BUCKET;")
     lines.append("} kern;")
     return "\n".join(lines)
 
@@ -330,34 +369,78 @@ def biased_bearings(font, left_bias):
 
 
 def kern(font, bar_gap=None, left_bias=None, **kwargs):
-    """Adds class pair kerning as the font's GPOS kern feature. Returns (median gap, rule count).
+    """Adds pair kerning as the font's GPOS kern feature. Returns (median gap, rule count).
 
     The crossbars of f and t end `bar_gap` units apart in ff, ft, tf and tt, by default about one bar
     thickness, so they read as two bars and neither join nor nearly touch.
+
+    Three lookups add up. KERN_BUCKET is the class kerning from optical bearings. KERN_CLASS holds
+    what the explicit pairs of the ASCII letters and marks change from it, as rules over a letter and
+    its accented forms with the same body, so `ŽÁ` gets the value of `ZA`. KERN_GLYPH holds the
+    differences that remain for individual glyphs: letters that take no class kerning, and accented
+    forms whose accent changes a pair.
     """
     if bar_gap is None:
         bar_gap = round(BAR_GAP_RATIO * stem_width(font))
-    bearings = biased_bearings(font, LEFT_BIAS if left_bias is None else left_bias)
     cmap = font.getBestCmap()
+    bearings = biased_bearings(font, LEFT_BIAS if left_bias is None else left_bias)
     plain, letters = plain_letters(font), {name for cp, name in cmap.items() if unicodedata.category(chr(cp))[0] == "L"}
     bearings = {name: value for name, value in bearings.items() if name not in letters or name in plain}
+
+    ascii_names = [cmap[ord(c)] for c in ASCII_LETTERS]
+    marks = [cmap[ord(c)] for c in FLOOR_MARKS if ord(c) in cmap]
+    opening = [cmap[ord(c)] for c in EXTRA_MARKS if ord(c) in cmap]
+    others = other_letters(font)
+    loose = [name for name in others if name not in plain]
+    punctuation = [cmap[ord(c)] for c in PUNCTUATION if ord(c) in cmap and cmap[ord(c)] not in marks]
+    edges = Edges(font, ascii_names + marks + others + punctuation)
+    floor = FLOOR_RATIO * edges.gap(cmap[ord("n")], cmap[ord("n")])
+
+    classes = base_classes(font, edges)
+    base_of = {name: base for base, members in classes.items() for name in members}
+    for base, members in classes.items():
+        for name in members[1:]:
+            bearings[name] = bearings[base]
     target, right, left, rules = plan(bearings, **kwargs)
     right_class = {name: k for k, names in right.items() for name in names}
     left_class = {name: k for k, names in left.items() for name in names}
     class_value = {(kr, kl): v for kr, kl, v in rules}
 
-    def old_value(first, second):
+    def bucket_value(first, second):
         if first in right_class and second in left_class:
             return class_value.get((right_class[first], left_class[second]), 0)
         return 0
 
     explicit = dict(bar_pairs(font, bar_gap))
-    explicit.update(mark_pairs(font, old_value))
+    explicit.update(mark_pairs(font, bucket_value, names=ascii_names))
 
-    def value_of(first, second):
-        return explicit.get((first, second), old_value(first, second))
+    def ascii_value(a, b):
+        return explicit.get((a, b), bucket_value(a, b))
 
-    explicit.update(floor_pairs(font, value_of, FLOOR_RATIO))
-    code = feature_code(right, left, rules, explicit)
+    explicit.update(edges.floor_pairs(ascii_names, ascii_names + marks, ascii_value, floor))
+    explicit.update(edges.floor_pairs(opening, ascii_names, ascii_value, floor))
+    class_rules = {pair: total - bucket_value(*pair) for pair, total in explicit.items() if total != bucket_value(*pair)}
+
+    def inherited(a, b):
+        return bucket_value(a, b) + class_rules.get((base_of.get(a, a), base_of.get(b, b)), 0)
+
+    tuck_marks = [cmap[ord(c)] for c in MARK_AFTER if ord(c) in cmap]
+    own = sorted(n for n in letters if n not in classes)
+    tucked = mark_pairs(font, bucket_value, names=own)
+    wanted = {(a, m): tucked.get((a, m), bucket_value(a, m)) for a in own for m in tuck_marks}
+
+    def value_of(a, b):
+        return wanted.get((a, b), inherited(a, b))
+
+    for first, second, trigger in (
+        (others, ascii_names + marks, 1.0), (marks, others, 1.0), (ascii_names, others, 1.0),
+        (loose, punctuation, LOOSE_TRIGGER),
+        (loose, others, TOUCH_TRIGGER), (others, loose, TOUCH_TRIGGER),
+        (others, others, TOUCH_TRIGGER),
+    ):
+        wanted.update(edges.floor_pairs(first, second, value_of, floor, trigger))
+    glyph_pairs = {pair: total - inherited(*pair) for pair, total in wanted.items()
+                   if abs(total - inherited(*pair)) > TOLERANCE}
+    code = feature_code(right, left, rules, classes, class_rules, glyph_pairs)
     addOpenTypeFeaturesFromString(font, code, tables=["GPOS"])
     return target, len(rules)
