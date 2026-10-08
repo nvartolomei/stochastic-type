@@ -1,5 +1,5 @@
 # Build plan for the Iosevka base of Stochastic Sans. font/iosevka.py copies it into the Iosevka checkout.
-# Anatomy: double-storey a with flat bottoms on a b d u and capital U G, flat L-turn hooks on t, f, j and g (t, f and j are cut to the length of l's tail by font/hooks.py),
+# Anatomy: double-storey a with flat bottoms on a b d u and capital U G, flat L-turn hooks on t, f, j and g (t, f and j are cut to the length of l's tail by font/hooks.py); the rule is flat at the baseline, eared at the x-height, with r as the one terminal exception,
 # single-storey g, flat-top r (the sans arm is cut by font/hooks.py), straight y, slashed zero, serifed capital I, short-tailed l.
 # Metrics: a tall x-height (504) and cap height 690 for long prose, wide letter bodies
 # (cell 530, sidebearings x0.7). Advances are replaced by font/spacing.py, so only the bodies matter.
@@ -19,7 +19,7 @@ d = "flat-bottom-serifless"
 u = "flat-bottom-serifless"
 f = "flat-hook-serifless-crossbar-at-x-height"
 t = "flat-hook"
-g = "single-storey-flat-hook-flat-top-serifless"
+g = "single-storey-flat-hook-serifless"
 y = "straight-serifless"
 i = "serifless"
 j = "flat-hook-serifless"
@@ -81,7 +81,7 @@ d = "flat-bottom-serifless"
 u = "flat-bottom-serifless"
 f = "flat-hook-serifless-crossbar-at-x-height"
 t = "flat-hook"
-g = "single-storey-flat-hook-flat-top-serifless"
+g = "single-storey-flat-hook-serifless"
 y = "straight-serifless"
 i = "serifed"
 j = "flat-hook-serifed"
