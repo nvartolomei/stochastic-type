@@ -26,6 +26,8 @@ import unicodedata
 from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
 
 from outline import flatten_contours
+from fontTools.pens.boundsPen import BoundsPen
+
 from caps import SIMILAR
 from glyphs import glyph_path
 from spacing import _scan, is_text, optical_edges, stem_width
@@ -168,6 +170,53 @@ def mark_pairs(font, old_value, clear=None):
     return pairs
 
 
+EXTRA_BLOCKS = [(0xC0, 0xFF), (0x100, 0x17F), (0x180, 0x24F), (0x1E00, 0x1EFF)]
+FLOOR_TOP = 950
+ASCII_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+
+def other_letters(font):
+    """Letters of Latin-1, Extended-A, Extended-B and Latin Extended Additional that are not ASCII, by glyph name."""
+    out = []
+    for cp, name in sorted(font.getBestCmap().items()):
+        if cp > 0x7F and unicodedata.category(chr(cp))[0] == "L" and any(lo <= cp <= hi for lo, hi in EXTRA_BLOCKS):
+            if name not in out:
+                out.append(name)
+    return out
+
+
+def plain_letters(font):
+    """Letters that may share their base letter's class kerning: ASCII, and accented forms whose ink stays
+    within that of the base.
+
+    A wider accent (the tilde of ĩ, the caron of ľ, the horn of ơ) or a letter with no base (Æ, Œ, ß)
+    reaches where the base never does, so the base's kerning would push it into a neighbour. Those
+    letters take no class kerning, only the clearance floor.
+    """
+    cmap, gs = font.getBestCmap(), font.getGlyphSet()
+    plain = set()
+    for cp, name in cmap.items():
+        ch = chr(cp)
+        if unicodedata.category(ch)[0] != "L":
+            continue
+        if cp < 0x80:
+            plain.add(name)
+            continue
+        base = SIMILAR.get(ch) or unicodedata.normalize("NFD", ch)[0]
+        if base == ch or not base.isascii() or ord(base) not in cmap:
+            continue
+        mine, theirs = _bounds(gs, name), _bounds(gs, cmap[ord(base)])
+        if mine and theirs and mine[0] >= theirs[0] - 6 and mine[2] <= theirs[2] + 6:
+            plain.add(name)
+    return plain
+
+
+def _bounds(glyph_set, name):
+    pen = BoundsPen(glyph_set)
+    glyph_set[name].draw(pen)
+    return pen.bounds
+
+
 def floor_pairs(font, value_of, ratio):
     """Pairs whose nearest ink would end up closer than `ratio` times the gap of `nn`, with the value that
     restores it.
@@ -176,19 +225,24 @@ def floor_pairs(font, value_of, ratio):
     between the right edge of the first glyph and the left edge of the second. It is what the eye
     reads as a near collision, and it is what a sum of per-glyph averages cannot see. A pair that is
     under the floor even unkerned is loosened, so `TT` (28 units unkerned) is pushed out as well.
+    The heights run to 950 so that accents count. Pairs are ASCII letters with ASCII letters and marks,
+    and the letters of Latin-1, Extended-A, Extended-B and Latin Extended Additional with the ASCII letters
+    and marks.
     """
     cmap, hmtx, gs = font.getBestCmap(), font["hmtx"], font.getGlyphSet()
-    letters = [cmap[ord(c)] for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"]
-    seconds = letters + [cmap[ord(c)] for c in MARK_AFTER + "!?" if ord(c) in cmap]
+    ascii_names = [cmap[ord(c)] for c in ASCII_LETTERS]
+    marks = [cmap[ord(c)] for c in MARK_AFTER + "!?" if ord(c) in cmap]
+    others = other_letters(font)
     edges = {}
-    for name in set(seconds):
+    for name in set(ascii_names + marks + others):
         contours = flatten_contours(glyph_path(gs, name), 10)
         left, right = {}, {}
-        for y in range(-300, 800, FLOOR_ROW):
+        for y in range(-300, FLOOR_TOP, FLOOR_ROW):
             xs = _scan(contours, y + 0.5)
             if xs:
                 left[y], right[y] = xs[0], xs[-1]
         edges[name] = (left, right)
+
     def nearest(a, b):
         right_a, left_b = edges[a][1], edges[b][0]
         gaps = [hmtx[a][0] - right_a[y] + left_b[y] for y in right_a if y in left_b]
@@ -196,25 +250,19 @@ def floor_pairs(font, value_of, ratio):
 
     floor = ratio * nearest(cmap[ord("n")], cmap[ord("n")])
     pairs = {}
-    for a in letters:
-        for b in seconds:
-            gap = nearest(a, b)
-            if gap is not None and gap + value_of(a, b) < floor:
-                pairs[(a, b)] = int(round(floor - gap))
+
+    def check(a, b):
+        gap = nearest(a, b)
+        if gap is not None and gap + value_of(a, b) < floor:
+            pairs[(a, b)] = int(round(floor - gap))
+
+    for a in ascii_names:
+        for b in ascii_names + marks + others:
+            check(a, b)
+    for a in others:
+        for b in ascii_names + marks:
+            check(a, b)
     return pairs
-
-
-def accent_variants(font):
-    """{base letter: glyph names of its accented forms}, so a pair fixed for H also holds for Ĥ."""
-    variants = {}
-    for cp, name in sorted(font.getBestCmap().items()):
-        ch = chr(cp)
-        if unicodedata.category(ch)[0] != "L":
-            continue
-        base = SIMILAR.get(ch) or (unicodedata.normalize("NFD", ch)[0] if len(unicodedata.normalize("NFD", ch)) > 1 else None)
-        if base and base.isascii() and base.isalpha() and base != ch:
-            variants.setdefault(base, []).append(name)
-    return variants
 
 
 def feature_code(right, left, rules, explicit=None):
@@ -254,7 +302,11 @@ def kern(font, bar_gap=None, left_bias=None, **kwargs):
     """
     if bar_gap is None:
         bar_gap = round(BAR_GAP_RATIO * stem_width(font))
-    target, right, left, rules = plan(biased_bearings(font, LEFT_BIAS if left_bias is None else left_bias), **kwargs)
+    bearings = biased_bearings(font, LEFT_BIAS if left_bias is None else left_bias)
+    cmap = font.getBestCmap()
+    plain, letters = plain_letters(font), {name for cp, name in cmap.items() if unicodedata.category(chr(cp))[0] == "L"}
+    bearings = {name: value for name, value in bearings.items() if name not in letters or name in plain}
+    target, right, left, rules = plan(bearings, **kwargs)
     right_class = {name: k for k, names in right.items() for name in names}
     left_class = {name: k for k, names in left.items() for name in names}
     class_value = {(kr, kl): v for kr, kl, v in rules}
@@ -270,15 +322,7 @@ def kern(font, bar_gap=None, left_bias=None, **kwargs):
     def value_of(first, second):
         return explicit.get((first, second), old_value(first, second))
 
-    cmap = font.getBestCmap()
-    letter_names = {cmap[ord(c)]: c for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"}
-    variants = accent_variants(font)
-    for (a, b), value in floor_pairs(font, value_of, FLOOR_RATIO).items():
-        explicit[(a, b)] = value
-        for va in [a] + variants.get(letter_names[a], []):
-            for vb in [b] + (variants.get(letter_names[b], []) if b in letter_names else []):
-                if (va, vb) not in explicit and old_value(va, vb) == old_value(a, b):
-                    explicit[(va, vb)] = value
+    explicit.update(floor_pairs(font, value_of, FLOOR_RATIO))
     code = feature_code(right, left, rules, explicit)
     addOpenTypeFeaturesFromString(font, code, tables=["GPOS"])
     return target, len(rules)

@@ -11,6 +11,7 @@ import unicodedata
 from outline import flatten_contours
 from glyphs import glyph_path
 
+ACCENT_OVERHANG = 35
 TEXT_BLOCKS = [
     (0x20, 0x7E), (0xA0, 0xFF), (0x100, 0x24F), (0x1E00, 0x1EFF), (0x2010, 0x2027), (0x2030, 0x205E), (0x20A0, 0x20CF),
 ]
@@ -73,6 +74,24 @@ def optical_edges(contours, cat, xheight=504, capheight=690):
     dl = sum(min(clip, (e - zl) if e is not None else clip) for e in left) / len(left)
     dr = sum(min(clip, (zr - e) if e is not None else clip) for e in right) / len(right)
     return zl, zr, dl, dr
+
+
+def fit_accents(glyph, glyf, advance, overhang=ACCENT_OVERHANG):
+    """Widens the advance of an accented letter whose accent is wider than the letter.
+
+    ĩ has a tilde 71 units past an advance of 235 on each side, and it ran into the ascender of d in
+    dĩ. The accent may reach `overhang` units into the neighbour's sidebearing, which an ascender stem
+    leaves free, but no further: the whole glyph is moved and the advance grows to keep the rest inside.
+    """
+    left = -overhang - glyph.xMin
+    if left > 0:
+        for comp in glyph.components:
+            comp.x += round(left)
+        glyph.recalcBounds(glyf)
+        advance += round(left)
+    if glyph.xMax > advance + overhang:
+        advance = round(glyph.xMax - overhang)
+    return advance
 
 
 def letterspace(font, xheight=504, capheight=690, target=76, strength=0.55, floor=14, digit_sb=62, space=360,
@@ -145,6 +164,7 @@ def letterspace(font, xheight=504, capheight=690, target=76, strength=0.55, floo
             for comp in g.components[1:]:
                 comp.x += round(dx)
             g.recalcBounds(glyf)
+            adv = fit_accents(g, glyf, adv)
             hmtx[name] = (adv, g.xMin)
 
     if 0x20 in cmap and space:
